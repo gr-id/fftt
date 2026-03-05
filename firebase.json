@@ -1,0 +1,8 @@
+{
+  "apphosting": [
+    {
+      "backendId": "fftt-web",
+      "rootDir": "web"
+    }
+  ]
+}
