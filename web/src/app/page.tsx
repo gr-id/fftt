@@ -16,12 +16,20 @@ export default function Home() {
         피드백으로 내 문장을 더 부드럽고 설득력 있게 바꿔보세요.
       </p>
       <div className="mt-8">
-        <Link
-          href="/training"
-          className="inline-flex items-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-        >
-          스킬 숙련 시작하기
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/training"
+            className="inline-flex items-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+          >
+            스킬 숙련 시작하기
+          </Link>
+          <Link
+            href="/agents/analyst"
+            className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+          >
+            분석가 설정 열기
+          </Link>
+        </div>
       </div>
     </main>
   );
