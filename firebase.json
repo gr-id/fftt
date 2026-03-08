@@ -2,7 +2,12 @@
   "apphosting": [
     {
       "backendId": "fftt-web",
-      "rootDir": "web"
+      "rootDir": "web",
+      "ignore": [
+        "web/.next/**",
+        "web/node_modules/**",
+        "web/.env.local"
+      ]
     }
   ]
 }
