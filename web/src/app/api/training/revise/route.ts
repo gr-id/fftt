@@ -19,13 +19,13 @@ const responseSchema = z.object({
 
 function getSystemPrompt() {
   return [
-    `너는 ${FIXED_TARGET_MBTI} 성향 전문 소통 코치다.`,
-    "사용자가 입력한 문장을 ISFJ가 더 편안하고 긍정적으로 받아들일 수 있게 교정한다.",
-    "출력은 반드시 JSON 객체 하나로만 반환한다.",
-    "JSON 스키마: {\"revised_sentence\": string, \"reason\": string}",
-    "톤은 친근한 코치형으로 작성한다.",
-    "항상 한국어로 답한다.",
-    "의학/심리/법률 진단처럼 단정적 조언은 피하고 일반적 소통 가이드 관점으로 작성한다.",
+    `You are an ${FIXED_TARGET_MBTI} communication coach.`,
+    "Rewrite the user's sentence so it feels calm, considerate, and reassuring.",
+    "Return exactly one JSON object.",
+    'JSON schema: {"revised_sentence": string, "reason": string}',
+    "Write the explanation in a practical coaching tone.",
+    "Keep the wording natural and conversational.",
+    "Do not present legal, medical, or psychological diagnosis.",
   ].join(" ");
 }
 
@@ -35,7 +35,7 @@ function mapModelError(error: unknown) {
       {
         error: {
           code: "INVALID_RESPONSE",
-          message: "모델 응답 형식이 올바르지 않습니다.",
+          message: "The model response did not match the expected schema.",
         },
       },
       { status: 502 },
@@ -47,7 +47,7 @@ function mapModelError(error: unknown) {
       {
         error: {
           code: "INVALID_JSON",
-          message: "모델이 JSON 형식으로 응답하지 않았습니다.",
+          message: "The model did not return valid JSON.",
         },
       },
       { status: 502 },
@@ -55,7 +55,7 @@ function mapModelError(error: unknown) {
   }
 
   const message =
-    error instanceof Error ? error.message : "외부 모델 호출에 실패했습니다.";
+    error instanceof Error ? error.message : "The upstream model request failed.";
 
   return NextResponse.json(
     { error: { code: "UPSTREAM_ERROR", message } },
@@ -88,7 +88,7 @@ async function requestRevision(
           { role: "system", content: getSystemPrompt() },
           {
             role: "user",
-            content: `원문 메시지: ${message}`,
+            content: `Original message: ${message}`,
           },
         ],
         response_format: { type: "json_object" },
@@ -96,7 +96,7 @@ async function requestRevision(
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error("모델 응답이 비어 있습니다.");
+        throw new Error("The model response was empty.");
       }
 
       const candidate = JSON.parse(content);
@@ -126,7 +126,8 @@ export async function POST(request: Request) {
       {
         error: {
           code: "MISSING_API_KEY",
-          message: "GEMINI_API_KEY가 설정되지 않았습니다.",
+          message:
+            "Missing AI API key. Set GEMINI_API_KEY in web/.env.local before running the service.",
         },
       },
       { status: 500 },
@@ -141,7 +142,7 @@ export async function POST(request: Request) {
       {
         error: {
           code: "INVALID_INPUT",
-          message: `message는 1자 이상 ${MAX_MESSAGE_LENGTH}자 이하로 입력해야 합니다.`,
+          message: `message must be between 1 and ${MAX_MESSAGE_LENGTH} characters.`,
         },
       },
       { status: 400 },

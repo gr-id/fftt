@@ -1,20 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Manrope, Noto_Sans_KR } from "next/font/google";
+
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const bodyFont = Noto_Sans_KR({
+  variable: "--font-body",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const displayFont = Manrope({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "TTFF - MBTI 소통 훈련",
-  description: "ISFJ 기준으로 메시지를 첨삭해주는 MBTI 소통 훈련 웹앱",
+  title: "FFTT | MBTI 소통 트레이닝",
+  description:
+    "MBTI별 맞춤 대화법과 실전 피드백으로 더 자연스럽게 소통하는 모바일 우선 트레이닝 서비스",
 };
 
 export default function RootLayout({
@@ -24,9 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased`}>
         {children}
       </body>
     </html>
