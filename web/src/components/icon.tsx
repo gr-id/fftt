@@ -126,6 +126,30 @@ function iconNode(name: string, filled: boolean) {
           <path d="m16 16 3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </>
       );
+    case "bar_chart":
+      return filled ? (
+        <>
+          <rect x="4" y="12" width="3.5" height="8" rx="1" fill="currentColor" />
+          <rect x="10.25" y="8" width="3.5" height="12" rx="1" fill="currentColor" />
+          <rect x="16.5" y="4.5" width="3.5" height="15.5" rx="1" fill="currentColor" />
+        </>
+      ) : (
+        <>
+          <path d="M5.8 20V12M12 20V8M18.2 20V4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </>
+      );
+    case "settings":
+      return (
+        <>
+          <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.8" />
+          <path
+            d="M12 4.2v2M12 17.8v2M4.2 12h2M17.8 12h2M6.4 6.4l1.4 1.4M16.2 16.2l1.4 1.4M17.6 6.4l-1.4 1.4M7.8 16.2l-1.4 1.4"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </>
+      );
     case "info":
       return (
         <>
