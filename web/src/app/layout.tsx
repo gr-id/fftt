@@ -7,12 +7,14 @@ const bodyFont = Noto_Sans_KR({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 const displayFont = Manrope({
   variable: "--font-display",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

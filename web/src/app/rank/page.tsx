@@ -1,125 +1,342 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import {
+  fetchAuthState,
+  linkGoogleOnProduction,
+  mockLinkGoogleOnStage,
+  type AuthState,
+} from "@/lib/auth-client";
+import { ensureAnonymousUser } from "@/lib/anonymous-user";
+import { hasFirebaseClientConfig } from "@/lib/firebase-client";
 import { BottomNav, AppHeader, HeaderIconButton } from "@/components/app-chrome";
 import { Icon } from "@/components/icon";
-import { RANKING_ENTRIES } from "@/lib/training";
+import { MBTI_LIST } from "@/lib/mbti";
 
-const USER_AVATAR =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDZUsL46VjKdH0BYi9A6MjR4fTdSdu4EAtB2vjDYmNtrj72kmCHuuB31h8KDOVL684SFpQ3d4LfRkzS55jH8dagNntoSPWRdng9SynvpimRqV5NAUp2i7vI66Hm04fCYyJFy1dTT5o5eJQtVr5jC38acgPZhpKsSJ1GDFmm_1LQFZXtS8a_dP6FW2MXtyM2A3UtIqBObsP-ckmvSpXhaH2J5zdKvG7qWhEH_j3wLRMaeVm9JTIYyP71vmBlRQfBQnD-2eP3IBl29_8";
-
-const TOP_AVATARS = [
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDoC1OrBWSl5KXLgkG6lP2YqwPNnSI1a3BCwG3cot2oT6439_GIF1GCAfa_qFpizK3Vov2rjtnH9upeWglmc4ZLBveIGgaHMmGYFKhMw0b3rUBMknan2CteRvrraCbeKlgLBLSGOf20zVP8rErCJES_fD4GCmLbCTqEEmMlhyC3zKmswEtnblTcQQtbqN591eEgTZmBurvXqmBR6ouA92Sdz5zHgn2N5dYSBWLHeVSE28krcqVz2Sk_nMy9N47Gt3CxdqV5niXEbeg",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDO4Cu1aP9yvMUaMCYRD005xKXtMfvTkavbpmv8UKcpNF-qmBJeHujKOQ2X5dNrMwQE0JL5XxbFcWjhnvlm8QHkVMk5R4C5dOcO1JI391hdfgYuMtpyjhIk-IFAia3Nv4_KoZhYwPE-C0XNuBEv6HM3YwcxlROQbMj-44Howgls4SqkduTISg2-cYvJ2QcZyrrslzG9e-wHidMICOOV-NrhPGsOe740hgV2SvcFSjyAyMt-t_9gbN8uNopkjeAo_JkRmScrU-QZfz8",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBWvY-gN0hudAagZy6LutwvmexeuDqgpLM6wqFWpzt_O23eAaVnhZlV7Pc15OqiziCvGY01kOH13yFy6i0XaWo4gIeGV2BwwDieFBOdQe2ec99N8dZ9vLWbMbA5KVlFZWYS2ZhtDG38VEtdPf_oSybXoV7CgpnUWOnEu2pOWJHbObJveanjBQMqiRay8qgKTYqDzqElaVhwdOW4acxGXjgQfZl5PudZTVLUObQi87zfsPKycmbstbUdi6LjUXmt8g3eoVB2I5L2_EU",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAAyRfEAiPX9QFZyY5B9CHjlUZS010LvmqVzlyzgde-tNLTkXTXOVRSApYU6MqsqgUuVBAmgYIY_92KqtdaJEqSHiLn-mP1wycwTwGWaasH3Q1NTMRkWG5A-orc8RYMdQqNL8kiQStTg4tIw8ViV6jEA-WLTuVoGisQM2Ll2YGLp34m9no5mO6EaMT2DXoLJBk2ZlSdnkYXDCNiQ31ITsX6uyvyY3INJyKTpehKOM_cT0xCmBZf5jGIMeGNkH6IDQ9-F1HaFiJJTpw",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuC3gqGtKiW4dkQ4xoKXCK2sUdiOVxFoqoYPXRLY4yLrech0-3XNmrSs86jcnYK8cNZg4rBi8dJ-oP6hp0Y3y_Ub2UqU3ALUJosQHNWPVremeuyqtmkx3KMii-mZcZ0L7g9oRTslam8S6BCdhjKrDJL8fiQplv2Qi47mVH6EyXbE7pJsj-Qb6jvrRjKVhU17nzoAu5ZGHJDFtnjfxozPSnyRfReHmSjCbn64Pl0FQ4q9o-uGhw721IqmB44t8SvgXxpMyC3C7pGjNCo",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuA7w1AyIlFDlVimrweAGR0WTUZUDX3wbzNdE2NNb8vYW98hB4pFw8W43-2X3vjD4RWnAs6mozIhYkLhEYQ33YcuHvM7R-maomu6mgvrKafaZnkMzjyJB5sH-e93cSyGRfOstzLscEffHah2Eu0FHcawNtXnDX2BgzGuiwuxGqICnnoktg084NAQSS2a6y__tJx-I6o-IPzF2VX7F1viWzIDxULoe0xKiQzsF65jOUujnW8MikK_FkB2GU84HjlUMFhC4a6AVtAIUNo",
-];
-
-const MBTI_BADGE_CLASS: Record<string, string> = {
-  INFJ: "bg-[rgba(238,173,43,0.18)] text-[var(--primary)]",
-  ESTP: "bg-blue-100 text-blue-700",
-  ENFP: "bg-green-100 text-green-700",
-  INTJ: "bg-purple-100 text-purple-700",
-  ISFJ: "bg-pink-100 text-pink-700",
-  ENTJ: "bg-slate-200 text-slate-700",
+type LeaderboardEntry = {
+  attemptCount: number;
+  bestScore: number;
+  displayName: string;
+  lastPlayedAt: string;
+  rank: number;
+  targetMbti: string | null;
+  totalScore: number;
+  userId: string;
 };
 
+type Standing = {
+  attemptCount: number;
+  bestScore: number;
+  rank: number | null;
+  totalScore: number;
+};
+
+type CurrentStanding = {
+  displayName: string;
+  mbti: Standing | null;
+  overall: Standing | null;
+  userId: string;
+};
+
+const MBTI_STORAGE_KEY = "fftt.selected-mbti";
+const APP_ENV = process.env.NEXT_PUBLIC_APP_ENV === "stage" ? "stage" : "production";
+const ENABLE_GOOGLE_SSO = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_SSO === "true";
+
+function formatRank(rank: number | null | undefined) {
+  return rank ? `#${rank}` : "-";
+}
+
+function LeaderboardSection({
+  entries,
+  title,
+}: {
+  entries: LeaderboardEntry[];
+  title: string;
+}) {
+  return (
+    <section className="mt-6">
+      <h2 className="mb-4 text-base font-extrabold text-[var(--ink)]">{title}</h2>
+      <div className="space-y-3">
+        {entries.map((entry) => (
+          <article
+            key={`${title}-${entry.userId}`}
+            className="app-glass-row flex items-center gap-4 p-4"
+          >
+            <div className="w-8 text-center">
+              <span className="text-xl font-black italic text-[var(--primary)]">{entry.rank}</span>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[var(--ink)]">{entry.displayName}</span>
+                {entry.targetMbti ? (
+                  <span className="rounded-full bg-[var(--primary-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--primary)]">
+                    {entry.targetMbti}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--muted)]">
+                <span>{entry.totalScore.toLocaleString()}점</span>
+                <span>최고 {entry.bestScore}점</span>
+                <span>{entry.attemptCount}회 플레이</span>
+              </div>
+            </div>
+            {entry.rank <= 3 ? (
+              <Icon name="emoji_events" className="text-[var(--primary)]" />
+            ) : null}
+          </article>
+        ))}
+        {entries.length === 0 ? (
+          <div className="app-card p-5 text-sm text-[var(--muted)]">
+            아직 집계된 랭킹이 없습니다.
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export default function RankPage() {
-  const topEntries = RANKING_ENTRIES.slice(0, 6);
+  const [selectedMbti, setSelectedMbti] = useState("ISFJ");
+  const [myStanding, setMyStanding] = useState<CurrentStanding | null>(null);
+  const [authState, setAuthState] = useState<AuthState | null>(null);
+  const [overallEntries, setOverallEntries] = useState<LeaderboardEntry[]>([]);
+  const [mbtiEntries, setMbtiEntries] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLinking, setIsLinking] = useState(false);
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    const storedMbti =
+      typeof window !== "undefined" ? window.localStorage.getItem(MBTI_STORAGE_KEY) : null;
+    const normalized = (storedMbti ?? "ISFJ").toUpperCase();
+    const exists = MBTI_LIST.some((profile) => profile.code === normalized);
+    setSelectedMbti(exists ? normalized : "ISFJ");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRankings() {
+      setIsLoading(true);
+      setErrorText("");
+
+      try {
+        const user = await ensureAnonymousUser();
+        const [overallResponse, mbtiResponse, meResponse, authResponse] = await Promise.all([
+          fetch("/api/rank/overall?limit=20", { cache: "no-store" }),
+          fetch(`/api/rank/mbti?mbti=${selectedMbti}&limit=20`, { cache: "no-store" }),
+          fetch(`/api/rank/me?userId=${user.userId}&mbti=${selectedMbti}`, {
+            cache: "no-store",
+          }),
+          fetchAuthState(user.userId),
+        ]);
+
+        const [overallPayload, mbtiPayload, mePayload] = await Promise.all([
+          overallResponse.json(),
+          mbtiResponse.json(),
+          meResponse.json(),
+        ]);
+
+        if (!overallResponse.ok) {
+          throw new Error(overallPayload.error?.message ?? "전체 랭킹을 불러오지 못했습니다.");
+        }
+
+        if (!mbtiResponse.ok) {
+          throw new Error(mbtiPayload.error?.message ?? "MBTI 랭킹을 불러오지 못했습니다.");
+        }
+
+        if (!meResponse.ok) {
+          throw new Error(mePayload.error?.message ?? "내 순위를 불러오지 못했습니다.");
+        }
+
+        if (!cancelled) {
+          setOverallEntries(overallPayload.entries ?? []);
+          setMbtiEntries(mbtiPayload.entries ?? []);
+          setMyStanding(mePayload);
+          setAuthState(authResponse);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setErrorText(error instanceof Error ? error.message : "랭킹 데이터를 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadRankings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMbti]);
+
+  const linkedGoogleProvider = authState?.providers.find((provider) => provider.provider === "google");
+  const canUseRealGoogle = APP_ENV === "production" && ENABLE_GOOGLE_SSO && hasFirebaseClientConfig();
+  const canUseMockGoogle = APP_ENV === "stage";
+
+  async function handleGoogleLink() {
+    setIsLinking(true);
+    setErrorText("");
+
+    try {
+      const nextAuthState = canUseMockGoogle
+        ? await mockLinkGoogleOnStage()
+        : await linkGoogleOnProduction();
+      setAuthState(nextAuthState);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : "Google 연결에 실패했습니다.");
+    } finally {
+      setIsLinking(false);
+    }
+  }
 
   return (
     <>
       <AppHeader
-        title="전체 랭킹"
+        title="랭킹"
         left={<HeaderIconButton href="/" icon="arrow_back" label="뒤로 가기" />}
-        right={<HeaderIconButton icon="search" label="검색" />}
       />
 
       <main className="app-screen app-page">
         <div className="app-content pb-6">
-          <section className="mb-4 flex gap-8 border-b border-[var(--line)] px-1">
-            {["주간", "월간", "전체"].map((tab, index) => (
-              <button
-                key={tab}
-                type="button"
-                className={`border-b-[3px] pb-3 pt-2 text-sm font-bold ${
-                  index === 0
-                    ? "border-[var(--primary)] text-[var(--ink)]"
-                    : "border-transparent text-[var(--muted)]"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </section>
-
-          <section className="mb-6 rounded-[24px] border border-[var(--line-strong)] bg-[var(--primary-soft)] p-5">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-white bg-[var(--primary)]">
-                  <img src={USER_AVATAR} alt="내 아바타" className="h-full w-full object-cover" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 rounded-full bg-[var(--ink)] px-2 py-0.5 text-[10px] font-bold text-white">
-                  MY
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="text-xl font-extrabold text-[var(--ink)]">
-                  124위 <span className="ml-1 text-sm font-medium text-[var(--muted)]">상위 5%</span>
+          <section className="app-card p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[var(--primary)]">
+                  My standing
                 </p>
-                <p className="text-sm text-[var(--muted)]">기록 980점 · 12일 연속</p>
+                <h2 className="mt-2 text-xl font-extrabold text-[var(--ink)]">
+                  {myStanding?.displayName ?? "익명 사용자"}
+                </h2>
               </div>
-              <button type="button" className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-bold text-[var(--ink)]">
-                내 기록
-              </button>
+              <div className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-xs font-bold text-[var(--primary)]">
+                {selectedMbti}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-[20px] border border-[var(--line-strong)] bg-[var(--primary-soft)] p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
+                  overall
+                </p>
+                <p className="mt-2 text-2xl font-extrabold text-[var(--ink)]">
+                  {formatRank(myStanding?.overall?.rank)}
+                </p>
+                <p className="mt-1 text-sm text-[rgba(27,23,13,0.62)]">
+                  누적 {myStanding?.overall?.totalScore ?? 0}점
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-[var(--line-strong)] bg-[var(--primary-soft)] p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">
+                  {selectedMbti}
+                </p>
+                <p className="mt-2 text-2xl font-extrabold text-[var(--ink)]">
+                  {formatRank(myStanding?.mbti?.rank)}
+                </p>
+                <p className="mt-1 text-sm text-[rgba(27,23,13,0.62)]">
+                  최고 {myStanding?.mbti?.bestScore ?? 0}점
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[20px] border border-[var(--line-strong)] bg-[rgba(255,255,255,0.54)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--muted)]">
+                    auth
+                  </p>
+                  <h3 className="mt-1 text-base font-extrabold text-[var(--ink)]">
+                    {APP_ENV === "stage" ? "Stage 인증 상태" : "Google 계정 연결"}
+                  </h3>
+                </div>
+                <span className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-[11px] font-bold text-[var(--primary)]">
+                  {authState?.environment ?? APP_ENV}
+                </span>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {authState?.providers.map((provider) => (
+                  <span
+                    key={`${provider.provider}-${provider.mode}`}
+                    className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-xs font-bold text-[var(--primary)]"
+                  >
+                    {provider.provider === "anonymous" ? "익명" : provider.mode === "mock" ? "Google(mock)" : "Google"}
+                  </span>
+                ))}
+              </div>
+
+              <p className="mt-3 text-sm leading-6 text-[rgba(27,23,13,0.66)]">
+                {linkedGoogleProvider
+                  ? linkedGoogleProvider.mode === "mock"
+                    ? "현재 stage 환경에서 테스트용 Google 연결 상태입니다."
+                    : "현재 Google 계정이 연결된 상태입니다."
+                  : APP_ENV === "stage"
+                    ? "stage에서는 실제 OAuth 없이 테스트용 Google 연결 상태만 검증합니다."
+                    : "prod에서만 실제 Google OAuth를 통해 기존 익명 사용자를 승격합니다."}
+              </p>
+
+              {!linkedGoogleProvider ? (
+                <button
+                  type="button"
+                  onClick={handleGoogleLink}
+                  disabled={isLinking || (!canUseMockGoogle && !canUseRealGoogle)}
+                  className="app-primary-button mt-4"
+                >
+                  <Icon name="account_circle" className="text-[22px]" />
+                  {isLinking
+                    ? "연결 중..."
+                    : APP_ENV === "stage"
+                      ? "테스트용 Google 연결"
+                      : "Google 계정 연결"}
+                </button>
+              ) : null}
+
+              {!canUseMockGoogle && !canUseRealGoogle && !linkedGoogleProvider ? (
+                <p className="mt-3 text-xs text-[var(--muted)]">
+                  현재 환경에서는 Google SSO 설정이 비활성화되어 있습니다.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {MBTI_LIST.map((profile) => (
+                <button
+                  key={profile.code}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMbti(profile.code);
+                    window.localStorage.setItem(MBTI_STORAGE_KEY, profile.code);
+                  }}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                    profile.code === selectedMbti
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[rgba(255,255,255,0.65)] text-[var(--ink)]"
+                  }`}
+                >
+                  {profile.code}
+                </button>
+              ))}
             </div>
           </section>
 
-          <section className="space-y-3 pb-4">
-            <h2 className="px-1 text-base font-extrabold text-[var(--ink)]">실시간 리더보드</h2>
-            {topEntries.map((entry, index) => {
-              const badgeClass = MBTI_BADGE_CLASS[entry.mbti] ?? "bg-[var(--background-strong)] text-[var(--muted)]";
+          {errorText ? (
+            <div className="mt-6 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-[var(--danger)]">
+              {errorText}
+            </div>
+          ) : null}
 
-              return (
-                <article
-                  key={entry.rank}
-                  className="app-glass-row relative flex items-center gap-4 p-4"
-                  style={{ opacity: index === 0 ? 1 : Math.max(0.7, 1 - index * 0.08) }}
-                >
-                  {index === 0 ? (
-                    <div className="absolute inset-y-0 left-0 w-1 rounded-l-[20px] bg-[var(--primary)]" />
-                  ) : null}
-                  <div className={`w-8 text-center ${index === 0 ? "text-[var(--primary)]" : "text-[var(--muted)]"}`}>
-                    <span className="text-xl font-black italic">{entry.rank}</span>
-                  </div>
-                  <div className="h-10 w-10 overflow-hidden rounded-full bg-[var(--background-strong)]">
-                    <img
-                      src={TOP_AVATARS[index] ?? USER_AVATAR}
-                      alt={`${entry.name} 아바타`}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-bold text-[var(--ink)]">{entry.name}</span>
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${badgeClass}`}>
-                        {entry.mbti}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-[var(--muted)]">
-                      <span>{entry.score.toLocaleString()}점</span>
-                      <span className="flex items-center gap-0.5 font-medium text-orange-500">
-                        <Icon name="local_fire_department" className="text-sm" />
-                        {entry.streak}일
-                      </span>
-                    </div>
-                  </div>
-                  {index === 0 ? (
-                    <Icon name="emoji_events" className="text-[var(--primary)]" />
-                  ) : null}
-                </article>
-              );
-            })}
-          </section>
+          {isLoading ? (
+            <div className="mt-6 app-card p-5 text-sm text-[var(--muted)]">랭킹을 불러오는 중입니다.</div>
+          ) : (
+            <>
+              <LeaderboardSection entries={overallEntries} title="전체 누적 랭킹" />
+              <LeaderboardSection entries={mbtiEntries} title={`${selectedMbti} 랭킹`} />
+            </>
+          )}
         </div>
       </main>
 

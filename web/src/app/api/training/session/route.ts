@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { MBTI_MAP } from "@/lib/mbti";
@@ -30,7 +31,13 @@ export async function POST(request: Request) {
 
   const randomTopic = TOPIC_BANK[Math.floor(Math.random() * TOPIC_BANK.length)];
 
-  return NextResponse.json(randomTopic, {
+  return NextResponse.json(
+    {
+      ...randomTopic,
+      sessionId: randomUUID(),
+    },
+    {
     headers: { "Cache-Control": "no-store" },
-  });
+    },
+  );
 }
