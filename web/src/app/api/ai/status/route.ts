@@ -1,9 +1,15 @@
 import OpenAI from "openai";
-import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { failure, success } from "@/lib/api-contract";
 
 const MODEL =
   process.env.GEMINI_MODEL ?? process.env.OPENAI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";
+
+const querySchema = z.object({
+  probe: z.enum(["1"]).optional(),
+});
 
 function getApiKey() {
   return process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY ?? null;
@@ -12,27 +18,49 @@ function getApiKey() {
 export async function GET(request: Request) {
   const apiKey = getApiKey();
   const { searchParams } = new URL(request.url);
-  const shouldProbe = searchParams.get("probe") === "1";
+  const queryParsed = querySchema.safeParse({
+    probe: searchParams.get("probe") ?? undefined,
+  });
+
+  if (!queryParsed.success) {
+    return failure("INVALID_INPUT", "probe 쿼리 파라미터는 1만 허용됩니다.", 400, {
+      details: queryParsed.error.flatten(),
+      legacy: {
+        configured: Boolean(apiKey),
+        live: false,
+        model: MODEL,
+        provider: "gemini",
+      },
+    });
+  }
+
+  const shouldProbe = queryParsed.data.probe === "1";
 
   if (!shouldProbe) {
-    return NextResponse.json({
+    const payload = {
       configured: Boolean(apiKey),
       live: false,
       model: MODEL,
       provider: "gemini",
-    });
+    };
+
+    return success(payload, { legacy: payload });
   }
 
   if (!apiKey) {
-    return NextResponse.json(
+    return failure(
+      "MISSING_API_KEY",
+      "No API key loaded from web/.env.local.",
+      500,
       {
-        configured: false,
-        live: false,
-        model: MODEL,
-        provider: "gemini",
-        error: "No API key loaded from web/.env.local.",
+        legacy: {
+          configured: false,
+          live: false,
+          model: MODEL,
+          provider: "gemini",
+          error: "No API key loaded from web/.env.local.",
+        },
       },
-      { status: 500 },
     );
   }
 
@@ -48,26 +76,27 @@ export async function GET(request: Request) {
       messages: [{ role: "user", content: "Reply with OK" }],
     });
 
-    return NextResponse.json({
+    const payload = {
       configured: true,
       live: true,
       model: MODEL,
       provider: "gemini",
       output: completion.choices[0]?.message?.content ?? "",
-    });
+    };
+
+    return success(payload, { legacy: payload });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "AI probe request failed.";
 
-    return NextResponse.json(
-      {
+    return failure("UPSTREAM_ERROR", message, 502, {
+      legacy: {
         configured: true,
         live: false,
         model: MODEL,
         provider: "gemini",
         error: message,
       },
-      { status: 502 },
-    );
+    });
   }
 }

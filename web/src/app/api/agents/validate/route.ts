@@ -1,6 +1,7 @@
 import OpenAI from "openai";
-import { NextResponse } from "next/server";
 import { z } from "zod";
+
+import { failure, parseJsonWithSchema, success } from "@/lib/api-contract";
 
 const geminiSchema = z.object({
   models: z.array(z.object({ name: z.string() })).optional(),
@@ -17,7 +18,6 @@ async function validateChatGpt(apiKey: string) {
   const modelName = response.data[0]?.id;
 
   return {
-    ok: true,
     provider: "chatgpt" as const,
     message: modelName
       ? `OpenAI 인증 성공 (${modelName})`
@@ -46,7 +46,6 @@ async function validateGemini(apiKey: string) {
   const modelName = payload.models?.[0]?.name;
 
   return {
-    ok: true,
     provider: "gemini" as const,
     message: modelName
       ? `Gemini 인증 성공 (${modelName})`
@@ -55,27 +54,20 @@ async function validateGemini(apiKey: string) {
 }
 
 export async function POST(request: Request) {
-  let body: z.infer<typeof requestSchema>;
-
-  try {
-    body = requestSchema.parse(await request.json());
-  } catch {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "provider와 apiKey를 올바르게 입력해주세요.",
-      },
-      { status: 400 },
-    );
+  const parsed = await parseJsonWithSchema(request, requestSchema);
+  if (!parsed.ok) {
+    const message = "provider와 apiKey를 올바르게 입력해주세요.";
+    return failure("INVALID_INPUT", message, 400, { legacy: { message } });
   }
+  const body = parsed.data;
 
   if (body.provider === "other") {
-    return NextResponse.json({
-      ok: true,
+    const payload = {
       provider: "other",
       message:
         "기타 타입은 연결 엔드포인트가 없어 키 형식만 검증했습니다. 실제 호출 검증은 별도 연동이 필요합니다.",
-    });
+    };
+    return success(payload, { legacy: payload });
   }
 
   try {
@@ -83,20 +75,18 @@ export async function POST(request: Request) {
       body.provider === "chatgpt"
         ? await validateChatGpt(body.apiKey)
         : await validateGemini(body.apiKey);
-    return NextResponse.json(result);
+    return success(result, { legacy: result });
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
         : "외부 API 검증 중 오류가 발생했습니다.";
 
-    return NextResponse.json(
-      {
-        ok: false,
+    return failure("PROVIDER_VALIDATION_FAILED", message, 502, {
+      legacy: {
         provider: body.provider,
         message,
       },
-      { status: 502 },
-    );
+    });
   }
 }

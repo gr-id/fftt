@@ -1,6 +1,7 @@
 import OpenAI from "openai";
-import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
+
+import { failure, parseJsonWithSchema, success } from "@/lib/api-contract";
 
 const MAX_MESSAGE_LENGTH = 500;
 const MODEL =
@@ -31,36 +32,21 @@ function getSystemPrompt() {
 
 function mapModelError(error: unknown) {
   if (error instanceof ZodError) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "INVALID_RESPONSE",
-          message: "The model response did not match the expected schema.",
-        },
-      },
-      { status: 502 },
+    return failure(
+      "INVALID_RESPONSE",
+      "The model response did not match the expected schema.",
+      502,
     );
   }
 
   if (error instanceof SyntaxError) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "INVALID_JSON",
-          message: "The model did not return valid JSON.",
-        },
-      },
-      { status: 502 },
-    );
+    return failure("INVALID_JSON", "The model did not return valid JSON.", 502);
   }
 
   const message =
     error instanceof Error ? error.message : "The upstream model request failed.";
 
-  return NextResponse.json(
-    { error: { code: "UPSTREAM_ERROR", message } },
-    { status: 502 },
-  );
+  return failure("UPSTREAM_ERROR", message, 502);
 }
 
 type UsagePayload = {
@@ -122,30 +108,19 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "MISSING_API_KEY",
-          message:
-            "Missing AI API key. Set GEMINI_API_KEY in web/.env.local before running the service.",
-        },
-      },
-      { status: 500 },
+    return failure(
+      "MISSING_API_KEY",
+      "Missing AI API key. Set GEMINI_API_KEY in web/.env.local before running the service.",
+      500,
     );
   }
 
-  let parsedBody: z.infer<typeof requestSchema>;
-  try {
-    parsedBody = requestSchema.parse(await request.json());
-  } catch {
-    return NextResponse.json(
-      {
-        error: {
-          code: "INVALID_INPUT",
-          message: `message must be between 1 and ${MAX_MESSAGE_LENGTH} characters.`,
-        },
-      },
-      { status: 400 },
+  const parsedBody = await parseJsonWithSchema(request, requestSchema);
+  if (!parsedBody.ok) {
+    return failure(
+      "INVALID_INPUT",
+      `message must be between 1 and ${MAX_MESSAGE_LENGTH} characters.`,
+      400,
     );
   }
 
@@ -155,8 +130,8 @@ export async function POST(request: Request) {
   });
 
   try {
-    const payload = await requestRevision(client, parsedBody.message);
-    return NextResponse.json(payload);
+    const payload = await requestRevision(client, parsedBody.data.message);
+    return success(payload, { legacy: payload });
   } catch (error) {
     return mapModelError(error);
   }
