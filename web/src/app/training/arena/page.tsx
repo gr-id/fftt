@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -16,28 +17,49 @@ import { Icon } from "@/components/icon";
 import { ensureAnonymousUser, type AnonymousUser } from "@/lib/anonymous-user";
 import { MBTI_IMAGES } from "@/lib/mbti-images";
 import { MBTI_MAP, type MbtiProfile } from "@/lib/mbti";
+import { trackProductEvent } from "@/lib/product-analytics-client";
+import {
+  normalizeTrainingCategory,
+  TRAINING_CATEGORY_LABELS,
+  TRAINING_DIFFICULTY_LABELS,
+  TRAINING_INTENT_LABELS,
+  type TrainingCategory,
+  type TrainingDifficulty,
+  type TrainingIntent,
+} from "@/lib/training";
 
 type ArenaPhase = "intro" | "solving" | "result";
 
 type SessionPayload = {
+  angle: string;
+  category: Exclude<TrainingCategory, "all">;
+  difficulty: TrainingDifficulty;
+  intent: TrainingIntent;
   sessionId: string;
   prompt: string;
   topic: string;
-  angle: string;
 };
 
 type StandingPayload = {
-  totalScore: number;
-  rank: number | null;
   attemptCount: number;
   bestScore: number;
+  rank: number | null;
+  totalScore: number;
 };
 
 type CurrentStandingPayload = {
   userId: string;
   displayName: string;
-  overall: StandingPayload | null;
   mbti: StandingPayload | null;
+  overall: StandingPayload | null;
+};
+
+type HistoryStatsPayload = {
+  previousScore: number | null;
+  recentAverageScore: number | null;
+  recentCount: number;
+  scoreDelta: number | null;
+  streakCount: number;
 };
 
 type EvaluationPayload = {
@@ -48,6 +70,7 @@ type EvaluationPayload = {
   model: string | null;
   responseSource: "ai" | "fallback";
   currentStanding?: CurrentStandingPayload;
+  historyStats?: HistoryStatsPayload;
 };
 
 type ErrorPayload = {
@@ -56,38 +79,56 @@ type ErrorPayload = {
   };
 };
 
-const STORAGE_KEY = "fftt.selected-mbti";
+const MBTI_STORAGE_KEY = "fftt.selected-mbti";
+const CATEGORY_STORAGE_KEY = "fftt.selected-training-category";
 const MAX_LENGTH = 300;
 const LIMIT_SECONDS = 120;
+
 const INTRO_HEADLINES: Record<string, string> = {
-  INTJ: "INTJ의 전략적인 사고 흐름을 먼저 읽어보세요",
-  INTP: "INTP의 끝없는 아이디어 회로에 들어가보세요",
-  ENTJ: "ENTJ가 반응하는 목표 중심 대화를 익혀보세요",
-  ENTP: "ENTP가 좋아하는 재치 있는 발상을 꺼내보세요",
-  INFJ: "INFJ와 깊이 있게 연결되는 말을 익혀보세요",
-  INFP: "INFP의 마음을 여는 다정한 표현을 익혀보세요",
-  ENFJ: "ENFJ를 움직이는 따뜻한 한마디를 배워보세요",
-  ENFP: "ENFP와 금방 가까워지는 생동감 있는 말을 익혀보세요",
-  ISTJ: "ISTJ가 신뢰하는 정확한 대화법을 익혀보세요",
-  ISFJ: "ISFJ를 안심시키는 세심한 표현을 익혀보세요",
-  ESTJ: "ESTJ가 납득하는 명확한 답변 구조를 익혀보세요",
-  ESFJ: "ESFJ와 분위기를 맞추는 친절한 대화를 익혀보세요",
-  ISTP: "ISTP가 편하게 받아들이는 담백한 말을 익혀보세요",
-  ISFP: "ISFP와 자연스럽게 가까워지는 말투를 익혀보세요",
-  ESTP: "ESTP가 바로 반응하는 시원한 대화를 익혀보세요",
-  ESFP: "ESFP와 즐겁게 연결되는 밝은 표현을 익혀보세요",
+  INTJ: "논리적이고 구조적인 설득을 먼저 보여 주세요.",
+  INTP: "생각을 넓혀 주는 유연한 문장을 연습해 보세요.",
+  ENTJ: "목표와 실행이 보이는 메시지를 만들어 보세요.",
+  ENTP: "재치와 관점을 살린 대화를 시도해 보세요.",
+  INFJ: "진심과 배려가 느껴지는 표현을 만들어 보세요.",
+  INFP: "부드럽고 따뜻한 진심을 문장에 담아 보세요.",
+  ENFJ: "격려와 연결감을 주는 답장을 연습해 보세요.",
+  ENFP: "밝고 생동감 있는 공감 표현을 써 보세요.",
+  ISTJ: "정확하고 신뢰감 있는 문장을 만들어 보세요.",
+  ISFJ: "안정감과 배려가 느껴지는 답장을 써 보세요.",
+  ESTJ: "기준과 실행이 선명한 답장을 연습해 보세요.",
+  ESFJ: "따뜻하고 조화로운 대화 방식을 시도해 보세요.",
+  ISTP: "간결하고 실용적인 메시지를 만들어 보세요.",
+  ISFP: "편안하고 자연스러운 말투를 연습해 보세요.",
+  ESTP: "직설적이면서 활기 있는 표현을 써 보세요.",
+  ESFP: "친근하고 분위기 좋은 대화를 만들어 보세요.",
 };
 
 function getResultSourceLabel(result: EvaluationPayload) {
   if (result.responseSource === "ai") {
-    return result.model ? `AI 분석 사용 · ${result.model}` : "AI 분석 사용";
+    return result.model ? `AI 사용: ${result.model}` : "AI 사용";
   }
 
   if (result.model) {
-    return `대체 피드백 사용 · ${result.model} 호출 실패`;
+    return `대체 평가 사용: ${result.model} 호출 실패`;
   }
 
-  return "대체 피드백 사용 · API 미연결";
+  return "대체 평가 사용: API 키 미설정";
+}
+
+function formatScoreDelta(scoreDelta: number | null | undefined) {
+  if (scoreDelta === null || scoreDelta === undefined) {
+    return "첫 기록";
+  }
+
+  if (scoreDelta > 0) {
+    return `+${scoreDelta}점`;
+  }
+
+  if (scoreDelta < 0) {
+    return `${scoreDelta}점`;
+  }
+
+  return "변화 없음";
 }
 
 function TrainingArenaContent() {
@@ -97,6 +138,7 @@ function TrainingArenaContent() {
   const [user, setUser] = useState<AnonymousUser | null>(null);
   const [phase, setPhase] = useState<ArenaPhase>("intro");
   const [session, setSession] = useState<SessionPayload | null>(null);
+  const [category, setCategory] = useState<TrainingCategory>("all");
   const [answer, setAnswer] = useState("");
   const [secondsLeft, setSecondsLeft] = useState(LIMIT_SECONDS);
   const [result, setResult] = useState<EvaluationPayload | null>(null);
@@ -106,8 +148,11 @@ function TrainingArenaContent() {
 
   useEffect(() => {
     const codeFromQuery = searchParams.get("mbti");
+    const categoryFromQuery = searchParams.get("category");
     const codeFromStorage =
-      typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+      typeof window !== "undefined" ? window.localStorage.getItem(MBTI_STORAGE_KEY) : null;
+    const categoryFromStorage =
+      typeof window !== "undefined" ? window.localStorage.getItem(CATEGORY_STORAGE_KEY) : null;
     const selectedCode = (codeFromQuery ?? codeFromStorage ?? "").toUpperCase();
     const selectedMbti = MBTI_MAP[selectedCode];
 
@@ -116,11 +161,15 @@ function TrainingArenaContent() {
       return;
     }
 
+    const nextCategory = normalizeTrainingCategory(categoryFromQuery ?? categoryFromStorage);
+
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, selectedMbti.code);
+      window.localStorage.setItem(MBTI_STORAGE_KEY, selectedMbti.code);
+      window.localStorage.setItem(CATEGORY_STORAGE_KEY, nextCategory);
     }
 
     setMbti(selectedMbti);
+    setCategory(nextCategory);
   }, [router, searchParams]);
 
   useEffect(() => {
@@ -134,7 +183,9 @@ function TrainingArenaContent() {
       })
       .catch((error) => {
         if (!cancelled) {
-          setErrorText(error instanceof Error ? error.message : "사용자 정보를 준비하지 못했습니다.");
+          setErrorText(
+            error instanceof Error ? error.message : "사용자 정보를 준비하지 못했습니다.",
+          );
         }
       });
 
@@ -170,19 +221,20 @@ function TrainingArenaContent() {
     hasExpiredRef.current = true;
     setResult({
       score: 0,
-      summary: "시간이 종료되어 답변이 제출되지 않았습니다. 다음 문제에서 다시 도전해보세요.",
+      summary: "시간이 종료되어 답변이 제출되지 않았습니다. 다음 문제에서 다시 도전해 보세요.",
       exemplarAnswer:
-        "상황을 먼저 인정하고, 상대가 바로 이해할 수 있는 구조로 제안과 선택지를 짧게 전달하는 답변이 좋습니다.",
+        "상황을 먼저 인정하고, 상대가 바로 이해할 수 있게 제안과 선택지를 간단히 정리해 보세요.",
       keyPoints: [
-        "첫 문장에서 상대의 상황이나 감정을 먼저 짚어주세요.",
-        "요청이나 제안은 한두 문장 안에서 분명하게 전달해주세요.",
-        "마무리에는 부담을 줄이는 선택지나 여지를 남겨주세요.",
+        "첫 문장에서 상대의 상황이나 감정을 먼저 짚어 주세요.",
+        "핵심 요청은 두 문장 안에 분명하게 담아 주세요.",
+        "마지막에는 부담을 줄이는 선택지나 여지를 남겨 주세요.",
       ],
       model: null,
       responseSource: "fallback",
+      historyStats: result?.historyStats,
     });
     setPhase("result");
-  }, [phase, secondsLeft]);
+  }, [phase, result?.historyStats, secondsLeft]);
 
   function resetState() {
     setAnswer("");
@@ -193,7 +245,7 @@ function TrainingArenaContent() {
     hasExpiredRef.current = false;
   }
 
-  function startSession() {
+  function startSession(options?: { skipIntro?: boolean }) {
     if (!mbti) {
       return;
     }
@@ -205,7 +257,11 @@ function TrainingArenaContent() {
         const response = await fetch("/api/training/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mbti: mbti.code }),
+          body: JSON.stringify({
+            category,
+            mbti: mbti.code,
+            userId: user?.userId,
+          }),
         });
 
         const payload = (await response.json()) as SessionPayload | ErrorPayload;
@@ -216,6 +272,19 @@ function TrainingArenaContent() {
 
         setSession(payload);
         setPhase("solving");
+
+        if (options?.skipIntro) {
+          await trackProductEvent({
+            eventName: "next_round_clicked",
+            metadata: {
+              category: payload.category,
+              difficulty: payload.difficulty,
+              sessionId: payload.sessionId,
+            },
+            targetMbti: mbti.code,
+            userId: user?.userId ?? null,
+          });
+        }
       } catch (error) {
         setErrorText(
           error instanceof Error ? error.message : "문제를 준비하는 중 오류가 발생했습니다.",
@@ -237,11 +306,16 @@ function TrainingArenaContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            angle: session.angle,
             userId: user.userId,
             sessionId: session.sessionId,
             mbti: mbti.code,
             prompt: session.prompt,
             answer,
+            category: session.category,
+            difficulty: session.difficulty,
+            intent: session.intent,
+            topic: session.topic,
           }),
         });
 
@@ -257,6 +331,11 @@ function TrainingArenaContent() {
         setErrorText(error instanceof Error ? error.message : "평가 중 오류가 발생했습니다.");
       }
     });
+  }
+
+  function continueWithSameMbti() {
+    resetState();
+    setPhase("intro");
   }
 
   if (!mbti) {
@@ -280,16 +359,26 @@ function TrainingArenaContent() {
         <main className="app-screen app-page">
           <div className="app-content space-y-6 pb-8">
             <section className="app-card overflow-hidden">
-              <div className="aspect-[4/3] bg-[var(--primary-soft)]">
-                <img
+              <div className="relative aspect-[4/3] bg-[var(--primary-soft)]">
+                <Image
                   src={MBTI_IMAGES[mbti.code]}
                   alt={`${mbti.code} 대표 이미지`}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 430px) 100vw, 430px"
                 />
               </div>
               <div className="p-6">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <span className="app-chip bg-[var(--primary-soft)] text-[var(--primary)]">
+                    {TRAINING_CATEGORY_LABELS[category]}
+                  </span>
+                  <span className="app-chip bg-[rgba(255,255,255,0.6)] text-[var(--ink)]">
+                    난이도 자동 추천
+                  </span>
+                </div>
                 <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ink)]">
-                  {INTRO_HEADLINES[mbti.code] ?? `${mbti.code}와 대화하는 감각을 먼저 익혀보세요`}
+                  {INTRO_HEADLINES[mbti.code]}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-[rgba(27,23,13,0.64)]">
                   {mbti.longDescription}
@@ -300,7 +389,7 @@ function TrainingArenaContent() {
             <section className="app-card app-card--soft p-5">
               <div className="flex items-center gap-2">
                 <Icon name="psychology" className="text-[20px] text-[var(--primary)]" />
-                <h3 className="text-lg font-extrabold text-[var(--ink)]">MBTI 특성</h3>
+                <h3 className="text-lg font-extrabold text-[var(--ink)]">핵심 키워드</h3>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {mbti.keywords.map((keyword) => (
@@ -318,7 +407,9 @@ function TrainingArenaContent() {
             <section className="app-card app-card--soft p-3">
               <div className="mb-3 flex items-center gap-2 px-2">
                 <Icon name="forum" className="text-[20px] text-[var(--primary)]" />
-                <h3 className="text-lg font-extrabold text-[var(--ink)]">이 MBTI와 대화할 때의 팁</h3>
+                <h3 className="text-lg font-extrabold text-[var(--ink)]">
+                  이렇게 말하면 좋습니다
+                </h3>
               </div>
               <div className="rounded-[22px] border border-[rgba(27,23,13,0.05)] bg-[rgba(255,255,255,0.42)] px-4 py-4">
                 <ol className="space-y-3">
@@ -342,11 +433,11 @@ function TrainingArenaContent() {
 
             <button
               type="button"
-              onClick={startSession}
+              onClick={() => startSession()}
               disabled={isPending}
               className="app-primary-button"
             >
-              {isPending ? "문제를 준비하고 있어요..." : "시작하기"}
+              {isPending ? "문제를 준비하고 있습니다..." : "이어서 훈련하기"}
             </button>
           </div>
         </main>
@@ -365,47 +456,62 @@ function TrainingArenaContent() {
 
         <main className="app-screen app-page">
           <div className="app-content space-y-6 pb-10">
-             <section className="app-card p-5">
-               <div className="flex items-start justify-between gap-4">
-                 <div>
-                   <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[var(--primary)]">
-                     남은시간
-                   </p>
-                    <p className="mt-1 text-sm font-medium text-[rgba(27,23,13,0.58)]">
-                     제한 시간 안에 상대가 좋아할 답변을 작성해보세요.
-                   </p>
-                 </div>
-               </div>
+            <section className="app-card p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[var(--primary)]">
+                    제한 시간
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[rgba(27,23,13,0.58)]">
+                    2분 안에 상대가 편안하게 받아들일 답장을 작성해 보세요.
+                  </p>
+                </div>
+                <span className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-sm font-bold text-[var(--primary)]">
+                  {secondsLeft}s
+                </span>
+              </div>
 
-               <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e7e0d2]">
-                 <div
-                   className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-1000"
-                   style={{ width: `${progress}%` }}
-                 />
-               </div>
-             </section>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[var(--background-strong)] px-3 py-1 text-xs font-bold text-[var(--ink)]">
+                  {session ? TRAINING_CATEGORY_LABELS[session.category] : ""}
+                </span>
+                <span className="rounded-full bg-[var(--background-strong)] px-3 py-1 text-xs font-bold text-[var(--ink)]">
+                  {session ? TRAINING_DIFFICULTY_LABELS[session.difficulty] : ""}
+                </span>
+                <span className="rounded-full bg-[var(--background-strong)] px-3 py-1 text-xs font-bold text-[var(--ink)]">
+                  {session ? TRAINING_INTENT_LABELS[session.intent] : ""}
+                </span>
+              </div>
 
-             <section className="app-card p-5">
-               <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[var(--primary)]">
-                 상황
-               </p>
-               <p className="mt-3 text-sm leading-7 text-[var(--ink)]">
-                 최근 대화에서 작은 오해가 생겼습니다. 변명처럼 들리지 않으면서 내 의도를 차분하게
-                 설명하는 답변을 작성해보세요.
-               </p>
-             </section>
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e7e0d2]">
+                <div
+                  className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-1000"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </section>
 
-             <form onSubmit={submitAnswer} className="space-y-4">
-               <section className="app-card p-5">
-                 <h2 className="text-lg font-extrabold leading-tight text-[var(--ink)]">
-                   {mbti.code} 가 좋아할 답변을 작성해보세요
-                 </h2>
+            <section className="app-card p-5">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[var(--primary)]">
+                주제
+              </p>
+              <p className="mt-2 text-lg font-extrabold text-[var(--ink)]">{session?.topic}</p>
+              <p className="mt-2 text-sm leading-6 text-[rgba(27,23,13,0.62)]">
+                {session?.angle}
+              </p>
+            </section>
 
-                 <div className="mt-5">
-                   <div className="mb-3 flex items-center justify-between px-1">
-                     <label className="text-sm font-bold text-[var(--ink)]">답변 작성</label>
+            <form onSubmit={submitAnswer} className="space-y-4">
+              <section className="app-card p-5">
+                <h2 className="text-lg font-extrabold leading-tight text-[var(--ink)]">
+                  {session?.prompt}
+                </h2>
+
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <label className="text-sm font-bold text-[var(--ink)]">답변 작성</label>
                     <span className="text-xs font-medium text-[rgba(27,23,13,0.42)]">
-                      핵심만 간결하게 작성해주세요
+                      짧지만 분명하게 작성해 주세요
                     </span>
                   </div>
                   <div className="relative">
@@ -415,7 +521,7 @@ function TrainingArenaContent() {
                       disabled={isPending}
                       className="app-textarea"
                       maxLength={MAX_LENGTH}
-                      placeholder="상대가 듣고 싶어 할 답변을 적어주세요."
+                      placeholder="상대가 편안하게 받아들일 답장을 작성해 보세요."
                     />
                     <div className="absolute bottom-4 right-4 rounded-full border border-[var(--line)] bg-[rgba(248,247,246,0.94)] px-3 py-1">
                       <span className="text-xs font-bold text-[var(--ink)]">{answer.length}</span>
@@ -451,7 +557,7 @@ function TrainingArenaContent() {
   return (
     <>
       <AppHeader
-        title="학습 결과"
+        title="훈련 결과"
         left={<HeaderIconButton href="/training" icon="arrow_back" label="뒤로 가기" />}
       />
 
@@ -479,9 +585,7 @@ function TrainingArenaContent() {
               </div>
             </div>
             <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-[var(--ink)]">
-              {(result?.score ?? 0) >= 80
-                ? "훌륭한 답변이었어요"
-                : "다음 문제에서 더 좋아질 수 있어요"}
+              {(result?.score ?? 0) >= 80 ? "좋은 방향입니다" : "다음 문제에서 더 좋아질 수 있어요"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-[rgba(27,23,13,0.48)]">{result?.summary}</p>
           </section>
@@ -499,6 +603,40 @@ function TrainingArenaContent() {
             <p className="text-sm leading-7 text-[rgba(27,23,13,0.68)]">{result?.summary}</p>
           </section>
 
+          {result?.historyStats ? (
+            <section className="mt-6 grid grid-cols-3 gap-3">
+              <article className="app-card p-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  streak
+                </p>
+                <p className="mt-2 text-2xl font-extrabold text-[var(--ink)]">
+                  {result.historyStats.streakCount}
+                </p>
+                <p className="mt-1 text-xs text-[rgba(27,23,13,0.58)]">연속 플레이 일수</p>
+              </article>
+              <article className="app-card p-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  avg 5
+                </p>
+                <p className="mt-2 text-2xl font-extrabold text-[var(--ink)]">
+                  {result.historyStats.recentAverageScore ?? "-"}
+                </p>
+                <p className="mt-1 text-xs text-[rgba(27,23,13,0.58)]">최근 5회 평균</p>
+              </article>
+              <article className="app-card p-4">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--muted)]">
+                  delta
+                </p>
+                <p className="mt-2 text-xl font-extrabold text-[var(--ink)]">
+                  {formatScoreDelta(result.historyStats.scoreDelta)}
+                </p>
+                <p className="mt-1 text-xs text-[rgba(27,23,13,0.58)]">
+                  이전 {result.historyStats.previousScore ?? "-"}점 대비
+                </p>
+              </article>
+            </section>
+          ) : null}
+
           {result?.currentStanding ? (
             <section className="mt-6 app-card p-5">
               <div className="flex items-center justify-between gap-3">
@@ -510,7 +648,10 @@ function TrainingArenaContent() {
                     {result.currentStanding.displayName}
                   </h3>
                 </div>
-                <Link href="/rank" className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-xs font-bold text-[var(--primary)]">
+                <Link
+                  href="/rank"
+                  className="rounded-full bg-[var(--primary-soft)] px-3 py-1 text-xs font-bold text-[var(--primary)]"
+                >
                   랭킹 보기
                 </Link>
               </div>
@@ -539,7 +680,7 @@ function TrainingArenaContent() {
                 </div>
               </div>
               <p className="mt-4 text-sm leading-6 text-[rgba(27,23,13,0.66)]">
-                총 {result.currentStanding.overall?.attemptCount ?? 0}회 플레이했고, 이번 점수가 랭킹에 반영되었습니다.
+                총 {result.currentStanding.overall?.attemptCount ?? 0}회 플레이했고 이번 점수가 랭킹에 반영되었습니다.
               </p>
             </section>
           ) : null}
@@ -574,7 +715,7 @@ function TrainingArenaContent() {
           <section className="mt-6">
             <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold text-[var(--ink)]">
               <Icon name="menu_book" className="text-[var(--primary)]" />
-              모범 답안
+              예시 답변
             </h3>
             <div className="relative overflow-hidden rounded-[24px] bg-[var(--primary-soft)] p-5">
               <Icon
@@ -588,11 +729,25 @@ function TrainingArenaContent() {
           </section>
 
           <section className="mt-auto space-y-3 pt-8">
-            <button type="button" onClick={startSession} className="app-primary-button">
-              다음 문제 풀기
+            <button
+              type="button"
+              onClick={() => startSession({ skipIntro: true })}
+              className="app-primary-button"
+            >
+              다음 문제 바로 풀기
             </button>
-            <Link href="/" className="app-secondary-button">
-              홈으로 이동
+            <button
+              type="button"
+              onClick={continueWithSameMbti}
+              className="app-secondary-button"
+            >
+              같은 MBTI 계속 훈련
+            </button>
+            <Link
+              href="/training/select"
+              className="app-secondary-button border-transparent bg-[rgba(255,255,255,0.5)]"
+            >
+              다른 MBTI로 바꾸기
             </Link>
           </section>
         </div>

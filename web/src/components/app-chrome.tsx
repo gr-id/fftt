@@ -65,9 +65,9 @@ export function BottomNav({ current }: BottomNavProps) {
 
   const items = [
     { key: "home", href: "/", icon: "home", label: "홈" },
-    { key: "training", href: "/training", icon: "ads_click", label: "트레이닝" },
+    { key: "training", href: "/training", icon: "ads_click", label: "훈련" },
     { key: "rank", href: "/rank", icon: "emoji_events", label: "랭킹" },
-    { key: "my", href: pathname, icon: "person", label: "마이" },
+    { key: "my", href: pathname, icon: "person", label: "내 정보" },
   ] as const;
 
   return (

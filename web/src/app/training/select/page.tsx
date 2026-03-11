@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -7,8 +8,13 @@ import { AppHeader, BottomNav, HeaderIconButton } from "@/components/app-chrome"
 import { Icon } from "@/components/icon";
 import { MBTI_IMAGES } from "@/lib/mbti-images";
 import { MBTI_LIST, MBTI_MAP } from "@/lib/mbti";
+import {
+  TRAINING_CATEGORY_OPTIONS,
+  type TrainingCategory,
+} from "@/lib/training";
 
-const STORAGE_KEY = "fftt.selected-mbti";
+const MBTI_STORAGE_KEY = "fftt.selected-mbti";
+const CATEGORY_STORAGE_KEY = "fftt.selected-training-category";
 
 export default function TrainingSelectPage() {
   const router = useRouter();
@@ -17,14 +23,25 @@ export default function TrainingSelectPage() {
       return "";
     }
 
-    return window.localStorage.getItem(STORAGE_KEY)?.toUpperCase() ?? "";
+    return window.localStorage.getItem(MBTI_STORAGE_KEY)?.toUpperCase() ?? "";
+  });
+  const [selectedCategory, setSelectedCategory] = useState<TrainingCategory>(() => {
+    if (typeof window === "undefined") {
+      return "all";
+    }
+
+    const stored = window.localStorage.getItem(CATEGORY_STORAGE_KEY);
+    return TRAINING_CATEGORY_OPTIONS.some((option) => option.code === stored)
+      ? (stored as TrainingCategory)
+      : "all";
   });
   const [sheetCode, setSheetCode] = useState<string | null>(null);
   const selectedMbti = sheetCode ? MBTI_MAP[sheetCode] : null;
 
   function moveToArena(code: string) {
-    window.localStorage.setItem(STORAGE_KEY, code);
-    router.push(`/training/arena?mbti=${code}`);
+    window.localStorage.setItem(MBTI_STORAGE_KEY, code);
+    window.localStorage.setItem(CATEGORY_STORAGE_KEY, selectedCategory);
+    router.push(`/training/arena?mbti=${code}&category=${selectedCategory}`);
   }
 
   return (
@@ -36,14 +53,43 @@ export default function TrainingSelectPage() {
 
       <main className="app-screen app-page">
         <div className="app-content pb-40">
-          <section className="mb-10 text-center">
+          <section className="mb-8 text-center">
             <h2 className="text-3xl font-extrabold tracking-tight text-[var(--ink)]">
-              본인의 MBTI를 선택해주세요
+              어떤 상대를 먼저 훈련할까요
             </h2>
             <p className="mt-3 text-sm leading-7 text-[rgba(27,23,13,0.62)]">
-              선택한 성향을 기준으로 FFTT AI가
+              MBTI와 대화 카테고리를 고르면
               <br />
-              맞춤형 트레이닝을 시작합니다
+              난이도는 최근 성과에 맞춰 자동으로 조정됩니다.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <Icon name="forum" className="text-[20px] text-[var(--primary)]" />
+              <h3 className="text-base font-extrabold text-[var(--ink)]">카테고리 선택</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {TRAINING_CATEGORY_OPTIONS.map((option) => (
+                <button
+                  key={option.code}
+                  type="button"
+                  onClick={() => setSelectedCategory(option.code)}
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                    selectedCategory === option.code
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-[var(--background-strong)] text-[var(--ink)]"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 px-1 text-sm text-[rgba(27,23,13,0.56)]">
+              {
+                TRAINING_CATEGORY_OPTIONS.find((option) => option.code === selectedCategory)
+                  ?.description
+              }
             </p>
           </section>
 
@@ -66,14 +112,16 @@ export default function TrainingSelectPage() {
                   }`}
                 >
                   <div
-                    className={`mb-4 aspect-square overflow-hidden rounded-[18px] bg-[var(--primary-soft)] ${
+                    className={`relative mb-4 aspect-square overflow-hidden rounded-[18px] bg-[var(--primary-soft)] ${
                       selected ? "ring-2 ring-[var(--primary)]" : ""
                     }`}
                   >
-                    <img
+                    <Image
                       src={MBTI_IMAGES[mbti.code]}
                       alt={`${mbti.code} 캐릭터 일러스트`}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 430px) 45vw, 180px"
                     />
                   </div>
                   <div className="space-y-1">
@@ -122,11 +170,14 @@ export default function TrainingSelectPage() {
 
               <div className="app-bottom-sheet__body">
                 <article className="mt-4 rounded-[28px] border border-transparent bg-[var(--background-strong)] p-4">
-                  <div className="overflow-hidden rounded-[20px] bg-[var(--primary-soft)]">
-                    <img
+                  <div className="relative overflow-hidden rounded-[20px] bg-[var(--primary-soft)]">
+                    <Image
                       src={MBTI_IMAGES[selectedMbti.code]}
                       alt={`${selectedMbti.code} 캐릭터 일러스트`}
+                      width={800}
+                      height={600}
                       className="aspect-[4/3] w-full object-cover"
+                      sizes="(max-width: 430px) 100vw, 400px"
                     />
                   </div>
 
@@ -138,6 +189,30 @@ export default function TrainingSelectPage() {
                       <p className="mt-2 text-sm leading-6 text-[rgba(27,23,13,0.72)]">
                         {selectedMbti.longDescription}
                       </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--primary)]">
+                        이번 훈련 카테고리
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {TRAINING_CATEGORY_OPTIONS.filter((option) => option.code !== "all").map(
+                          (option) => (
+                            <button
+                              key={option.code}
+                              type="button"
+                              onClick={() => setSelectedCategory(option.code)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                                selectedCategory === option.code
+                                  ? "bg-[var(--primary)] text-white"
+                                  : "bg-white text-[var(--ink)]"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ),
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -158,7 +233,7 @@ export default function TrainingSelectPage() {
 
                     <div>
                       <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--primary)]">
-                        이렇게 말하면 잘 통합니다
+                        이렇게 말하면 좋습니다
                       </p>
                       <div className="mt-3 space-y-2">
                         {selectedMbti.tips.map((tip) => (
@@ -185,10 +260,11 @@ export default function TrainingSelectPage() {
                   onClick={() => moveToArena(selectedMbti.code)}
                   className="app-primary-button rounded-[24px]"
                 >
-                  유형 확정 및 시작하기
+                  이 유형으로 이어서 훈련하기
                 </button>
                 <p className="mt-4 text-center text-[12px] leading-5 text-[rgba(27,23,13,0.5)]">
-                  선택한 MBTI를 기준으로 첫 문제와 피드백 톤이 설정됩니다.
+                  카테고리는 {TRAINING_CATEGORY_OPTIONS.find((option) => option.code === selectedCategory)?.label}
+                  , 난이도는 최근 점수 기준으로 자동 선택됩니다.
                 </p>
               </div>
             </div>

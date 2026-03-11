@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -8,22 +9,22 @@ import { Icon } from "@/components/icon";
 
 const MODES = [
   {
-    name: "대화 트레이닝",
-    description: "일상적인 상황에서의 맞춤 대화 연습",
+    name: "문장 트레이닝",
+    description: "실전 상황에서 MBTI 맞춤형 답장을 연습합니다.",
     icon: "forum",
     status: "active",
     href: "/training",
   },
   {
     name: "비즈니스 회의",
-    description: "효과적인 협상과 논리적 설득 기법",
+    description: "업무 커뮤니케이션용 훈련 모드가 곧 추가됩니다.",
     icon: "work",
     status: "soon",
     href: "",
   },
   {
-    name: "연애 코칭",
-    description: "상대방의 마음을 얻는 공감 대화법",
+    name: "관계 코칭",
+    description: "감정 케어 중심의 훈련 모드가 곧 추가됩니다.",
     icon: "favorite",
     status: "soon",
     href: "",
@@ -33,23 +34,32 @@ const MODES = [
 const VALUE_CARDS = [
   {
     icon: "psychology",
-    title: "타인에 대한 이해",
-    body: "성격 유형별 핵심 동기와 소통 스타일을 파악합니다.",
+    title: "성향 기반 이해",
+    body: "상대 성향에 맞는 말하기 방식과 반응 포인트를 빠르게 파악합니다.",
   },
   {
     icon: "chat_bubble",
-    title: "실전 트레이닝",
-    body: "가상의 시나리오를 통해 직접 대화를 연습해봅니다.",
+    title: "실전형 연습",
+    body: "현실적인 상황 카드로 바로 써먹을 수 있는 답장을 훈련합니다.",
   },
   {
     icon: "bolt",
-    title: "즉각적인 피드백",
-    body: "대화 흐름에 따른 AI의 정밀 분석 결과를 제공합니다.",
+    title: "즉시 피드백",
+    body: "AI 평가와 예시 답변으로 개선 방향을 바로 확인할 수 있습니다.",
   },
-];
+] as const;
 
 export default function HomePage() {
   const [isModeSheetOpen, setIsModeSheetOpen] = useState(false);
+  const [continueHref] = useState(() => {
+    if (typeof window === "undefined") {
+      return "/training";
+    }
+
+    const mbti = window.localStorage.getItem("fftt.selected-mbti")?.toUpperCase();
+    const category = window.localStorage.getItem("fftt.selected-training-category") ?? "all";
+    return mbti ? `/training/arena?mbti=${mbti}&category=${category}` : "/training";
+  });
 
   return (
     <>
@@ -64,25 +74,28 @@ export default function HomePage() {
           <section className="relative min-h-[420px] overflow-hidden rounded-[28px] bg-[var(--primary-soft)] p-6">
             <div className="absolute inset-0">
               <div className="absolute inset-0 bg-gradient-to-t from-[rgba(238,173,43,0.28)] to-transparent" />
-              <img
+              <Image
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQbj3ERWLJGm17KFnxd0mlMgmzr_ZieiKcM65MnPq-5MXGjWgub_1HDi2AkNG82wkdQwPD3Qvdof8YWc2OqEG_ZUbGXq7nQJl1BiTkCVZbDtbZQAaIZDQPZX2qxm7UsYhftS0kZwZgn0Ld9BsdGxD7Lbe-vpHdqzc8ohe-XgyzR92DlVnsPxPUCfard8qPAzPTWBduw-jewPOVe4cVtrKoTahr5h4WiH2loErMF-q__vhcTJKXbo0-BqP4xfQJ_a2iKySjPC6vrqY"
-                alt="다양한 성향의 사람들이 따뜻하게 대화하는 장면"
-                className="h-full w-full object-cover mix-blend-overlay"
+                alt="다양한 성향의 사람들이 함께 대화하는 장면"
+                fill
+                className="object-cover mix-blend-overlay"
+                sizes="(max-width: 430px) 100vw, 430px"
+                priority
               />
             </div>
 
             <div className="relative z-10 flex min-h-[372px] flex-col justify-end gap-4">
               <span className="app-chip w-fit bg-[var(--primary)] text-[var(--ink)]">
-                MBTI 커뮤니케이션
+                MBTI Communication Training
               </span>
               <div className="space-y-3">
                 <h2 className="text-[2rem] font-extrabold leading-[1.08] tracking-tight text-[var(--ink)]">
-                  나와 다른 상대를
+                  서로 다른 상대를
                   <br />
-                  이해하는 첫 걸음
+                  이해하는 첫 훈련
                 </h2>
                 <p className="max-w-[280px] text-base font-medium leading-7 text-[rgba(27,23,13,0.74)]">
-                  MBTI별 맞춤 대화법으로 더 깊은 관계를 만들어보세요.
+                  MBTI 성향에 맞춘 말하기 연습으로 관계와 설득력을 함께 높여 보세요.
                 </p>
               </div>
               <div className="space-y-3 pt-2">
@@ -91,7 +104,7 @@ export default function HomePage() {
                   onClick={() => setIsModeSheetOpen(true)}
                   className="app-primary-button"
                 >
-                  지금 시작
+                  이어서 훈련하기
                 </button>
                 <Link href="/rank" className="app-secondary-button">
                   랭킹 보기
@@ -102,7 +115,7 @@ export default function HomePage() {
 
           <section className="space-y-4 px-0 py-6">
             <h3 className="px-1 text-xl font-extrabold tracking-tight text-[var(--ink)]">
-              프로그램 특징
+              왜 FFTT인가요
             </h3>
             <div className="space-y-4">
               {VALUE_CARDS.map((card) => (
@@ -191,11 +204,11 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/training"
+              href={continueHref}
               onClick={() => setIsModeSheetOpen(false)}
               className="app-primary-button mt-8"
             >
-              지금 바로 시작
+              바로 이어서 훈련하기
             </Link>
           </div>
         </div>

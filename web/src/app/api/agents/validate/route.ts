@@ -19,9 +19,7 @@ async function validateChatGpt(apiKey: string) {
   return {
     ok: true,
     provider: "chatgpt" as const,
-    message: modelName
-      ? `OpenAI 인증 성공 (${modelName})`
-      : "OpenAI 인증 성공",
+    message: modelName ? `OpenAI 연결 성공 (${modelName})` : "OpenAI 연결 성공",
   };
 }
 
@@ -39,7 +37,7 @@ async function validateGemini(apiKey: string) {
     const payload = (await response.json().catch(() => ({}))) as {
       error?: { message?: string };
     };
-    throw new Error(payload.error?.message ?? "Gemini API 인증에 실패했습니다.");
+    throw new Error(payload.error?.message ?? "Gemini API 연결에 실패했습니다.");
   }
 
   const payload = geminiSchema.parse(await response.json());
@@ -48,9 +46,7 @@ async function validateGemini(apiKey: string) {
   return {
     ok: true,
     provider: "gemini" as const,
-    message: modelName
-      ? `Gemini 인증 성공 (${modelName})`
-      : "Gemini 인증 성공",
+    message: modelName ? `Gemini 연결 성공 (${modelName})` : "Gemini 연결 성공",
   };
 }
 
@@ -63,7 +59,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "provider와 apiKey를 올바르게 입력해주세요.",
+        message: "provider와 apiKey를 올바르게 입력해 주세요.",
       },
       { status: 400 },
     );
@@ -74,7 +70,7 @@ export async function POST(request: Request) {
       ok: true,
       provider: "other",
       message:
-        "기타 타입은 연결 엔드포인트가 없어 키 형식만 검증했습니다. 실제 호출 검증은 별도 연동이 필요합니다.",
+        "기타 제공자는 형식만 검증했습니다. 실제 호출 검증은 별도 연동이 필요합니다.",
     });
   }
 
@@ -86,9 +82,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : "외부 API 검증 중 오류가 발생했습니다.";
+      error instanceof Error ? error.message : "모델 API 검증 중 오류가 발생했습니다.";
 
     return NextResponse.json(
       {

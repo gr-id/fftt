@@ -24,7 +24,7 @@ function readStoredUser(): AnonymousUser | null {
   return { anonymousToken, displayName, userId };
 }
 
-function storeUser(user: AnonymousUser) {
+export function storeAnonymousUser(user: AnonymousUser) {
   window.localStorage.setItem(ANONYMOUS_TOKEN_KEY, user.anonymousToken);
   window.localStorage.setItem(DISPLAY_NAME_KEY, user.displayName);
   window.localStorage.setItem(USER_ID_KEY, user.userId);
@@ -48,7 +48,7 @@ export async function ensureAnonymousUser(): Promise<AnonymousUser> {
   }
 
   const user = (await response.json()) as AnonymousUser;
-  storeUser(user);
+  storeAnonymousUser(user);
   return user;
 }
 
@@ -58,4 +58,12 @@ export function getStoredUserId() {
   }
 
   return window.localStorage.getItem(USER_ID_KEY);
+}
+
+export function updateStoredDisplayName(displayName: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(DISPLAY_NAME_KEY, displayName);
 }

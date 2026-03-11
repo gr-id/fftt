@@ -32,9 +32,10 @@ const BASIC_STORAGE_KEY = "ttff.agent.analyst.basic.v1";
 const AI_STORAGE_KEY = "ttff.agent.analyst.ai.v1";
 const FORMAT_STORAGE_KEY = "ttff.agent.analyst.format.v1";
 
-const DEFAULT_TEMPLATE = `<p>새 분석 작업이 생성되었습니다.</p><p><br></p><p><strong>제목:</strong> {} 기사 제목</p><p><strong>URL:</strong> {} 기사 링크</p><p><strong>요약:</strong> {} 분석 결과 요약</p>`;
+const DEFAULT_TEMPLATE =
+  "<p><strong>제목:</strong> {} 기사 제목</p><p><strong>URL:</strong> {} 기사 링크</p><p><strong>요약:</strong> {} 분석 결과 요약</p>";
 
-const DEFAULT_COLUMNS = ["기사 제목", "기사 링크", "분석 결과 요약", "작성자"];
+const DEFAULT_COLUMNS = ["기사 제목", "기사 링크", "분석 결과 요약", "작성일"];
 
 const RUN_HISTORIES: RunHistory[] = [
   {
@@ -49,7 +50,7 @@ const RUN_HISTORIES: RunHistory[] = [
     startedAt: "2026-03-05 17:40",
     progressState: "완료",
     runId: "RUN-20260305-0007",
-    trigger: "스케줄",
+    trigger: "정기 실행",
     handledArticles: 12,
     resultState: "성공",
   },
@@ -57,7 +58,7 @@ const RUN_HISTORIES: RunHistory[] = [
     startedAt: "2026-03-05 16:10",
     progressState: "실패",
     runId: "RUN-20260305-0006",
-    trigger: "웹훅",
+    trigger: "재시도",
     handledArticles: 0,
     resultState: "API 오류",
   },
@@ -128,7 +129,7 @@ export default function AnalystAgentPage() {
     };
 
     localStorage.setItem(BASIC_STORAGE_KEY, JSON.stringify(payload));
-    setBasicSaveText("기본정보를 저장했습니다.");
+    setBasicSaveText("기본 정보를 저장했습니다.");
   }
 
   function saveAiInfo() {
@@ -137,7 +138,7 @@ export default function AnalystAgentPage() {
       apiKey: apiKey.trim(),
     };
     localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(payload));
-    setAiSaveText("AI 정보를 저장했습니다.");
+    setAiSaveText("AI 설정을 저장했습니다.");
   }
 
   async function validateApiKey() {
@@ -176,7 +177,7 @@ export default function AnalystAgentPage() {
       FORMAT_STORAGE_KEY,
       JSON.stringify({ templateHtml: currentTemplate, columns }),
     );
-    setFormatSaveText("형식을 저장했습니다.");
+    setFormatSaveText("서식 설정을 저장했습니다.");
   }
 
   function addColumn() {
@@ -200,14 +201,14 @@ export default function AnalystAgentPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:px-8">
       <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">분석가 유형 에이전트</h1>
+        <h1 className="text-2xl font-bold text-slate-900">분석가 에이전트</h1>
         <p className="mt-2 text-sm text-slate-600">
-          분석가 상세 설정, 템플릿, 실행 내역을 한 화면에서 관리합니다.
+          분석가 상세 설정, AI 인증, 출력 서식, 실행 이력을 이 화면에서 관리합니다.
         </p>
       </header>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">기본정보</h2>
+        <h2 className="text-lg font-semibold text-slate-900">기본 정보</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3">
             <input
@@ -220,15 +221,13 @@ export default function AnalystAgentPage() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              이름
-            </span>
+            <span className="mb-2 block text-sm font-medium text-slate-700">이름</span>
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-              placeholder="에이전트 이름을 입력하세요"
+              placeholder="에이전트 이름을 입력해 주세요."
             />
           </label>
         </div>
@@ -241,19 +240,15 @@ export default function AnalystAgentPage() {
           >
             저장
           </button>
-          {basicSaveText ? (
-            <span className="text-sm text-emerald-700">{basicSaveText}</span>
-          ) : null}
+          {basicSaveText ? <span className="text-sm text-emerald-700">{basicSaveText}</span> : null}
         </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">AI 정보</h2>
+        <h2 className="text-lg font-semibold text-slate-900">AI 설정</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              AI 종류
-            </span>
+            <span className="mb-2 block text-sm font-medium text-slate-700">AI 제공자</span>
             <select
               value={provider}
               onChange={(event) => setProvider(event.target.value as AiProvider)}
@@ -266,15 +261,13 @@ export default function AnalystAgentPage() {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-700">
-              API Key
-            </span>
+            <span className="mb-2 block text-sm font-medium text-slate-700">API Key</span>
             <input
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
               className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900"
-              placeholder="API 키를 입력하세요"
+              placeholder="API 키를 입력해 주세요."
             />
           </label>
         </div>
@@ -296,58 +289,36 @@ export default function AnalystAgentPage() {
             {isValidating ? "검증 중..." : "검증"}
           </button>
           {aiSaveText ? <span className="text-sm text-emerald-700">{aiSaveText}</span> : null}
-          {validationText ? (
-            <span className="text-sm text-slate-700">{validationText}</span>
-          ) : null}
+          {validationText ? <span className="text-sm text-slate-700">{validationText}</span> : null}
         </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">형식</h2>
+        <h2 className="text-lg font-semibold text-slate-900">출력 서식</h2>
         <p className="mt-2 text-sm text-slate-600">
-          텍스트를 자유롭게 작성하고 컬럼 토큰을 삽입해 출력 형식을 구성합니다.
+          텍스트를 자유롭게 작성하고 컬럼 토큰을 삽입해 결과 서식을 구성합니다.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <button
-            type="button"
-            onClick={() => commandForToolbar("bold")}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={() => commandForToolbar("bold")} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
             B
           </button>
-          <button
-            type="button"
-            onClick={() => commandForToolbar("italic")}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={() => commandForToolbar("italic")} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
             I
           </button>
-          <button
-            type="button"
-            onClick={() => commandForToolbar("strikeThrough")}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={() => commandForToolbar("strikeThrough")} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
             S
           </button>
-          <button
-            type="button"
-            onClick={() => commandForToolbar("insertUnorderedList")}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={() => commandForToolbar("insertUnorderedList")} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
             UL
           </button>
-          <button
-            type="button"
-            onClick={() => commandForToolbar("insertOrderedList")}
-            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-          >
+          <button type="button" onClick={() => commandForToolbar("insertOrderedList")} className="rounded-md border border-slate-300 px-2 py-1 text-sm">
             OL
           </button>
           <button
             type="button"
             onClick={() => {
-              const link = window.prompt("링크 URL을 입력하세요");
+              const link = window.prompt("링크 URL을 입력해 주세요.");
               if (link) commandForToolbar("createLink", link);
             }}
             className="rounded-md border border-slate-300 px-2 py-1 text-sm"
@@ -401,24 +372,22 @@ export default function AnalystAgentPage() {
           >
             저장
           </button>
-          {formatSaveText ? (
-            <span className="text-sm text-emerald-700">{formatSaveText}</span>
-          ) : null}
+          {formatSaveText ? <span className="text-sm text-emerald-700">{formatSaveText}</span> : null}
         </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">실행 내역</h2>
+        <h2 className="text-lg font-semibold text-slate-900">실행 이력</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-600">
-                <th className="px-3 py-2 font-medium">시작일시</th>
-                <th className="px-3 py-2 font-medium">상태</th>
+                <th className="px-3 py-2 font-medium">시작 시각</th>
+                <th className="px-3 py-2 font-medium">진행 상태</th>
                 <th className="px-3 py-2 font-medium">실행 ID</th>
                 <th className="px-3 py-2 font-medium">트리거</th>
-                <th className="px-3 py-2 font-medium">처리한 기사 수</th>
-                <th className="px-3 py-2 font-medium">상태</th>
+                <th className="px-3 py-2 font-medium">처리 기사 수</th>
+                <th className="px-3 py-2 font-medium">결과</th>
                 <th className="px-3 py-2 font-medium">보기</th>
               </tr>
             </thead>
@@ -427,13 +396,9 @@ export default function AnalystAgentPage() {
                 <tr key={history.runId} className="border-b border-slate-100">
                   <td className="px-3 py-3 text-slate-700">{history.startedAt}</td>
                   <td className="px-3 py-3 text-slate-700">{history.progressState}</td>
-                  <td className="px-3 py-3 font-mono text-xs text-slate-700">
-                    {history.runId}
-                  </td>
+                  <td className="px-3 py-3 font-mono text-xs text-slate-700">{history.runId}</td>
                   <td className="px-3 py-3 text-slate-700">{history.trigger}</td>
-                  <td className="px-3 py-3 text-slate-700">
-                    {history.handledArticles}
-                  </td>
+                  <td className="px-3 py-3 text-slate-700">{history.handledArticles}</td>
                   <td className="px-3 py-3 text-slate-700">{history.resultState}</td>
                   <td className="px-3 py-3">
                     <button

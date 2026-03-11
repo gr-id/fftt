@@ -18,9 +18,9 @@ const displayFont = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "FFTT | MBTI 소통 트레이닝",
+  title: "FFTT | MBTI 커뮤니케이션 트레이닝",
   description:
-    "MBTI별 맞춤 대화법과 실전 피드백으로 더 자연스럽게 소통하는 모바일 우선 트레이닝 서비스",
+    "MBTI 성향에 맞는 말하기 방식을 연습하고 AI 피드백으로 개선하는 커뮤니케이션 트레이닝 앱",
 };
 
 export default function RootLayout({

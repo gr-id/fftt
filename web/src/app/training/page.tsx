@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 import { AppHeader, BottomNav, HeaderIconButton } from "@/components/app-chrome";
 import { Icon } from "@/components/icon";
@@ -6,26 +9,37 @@ import { Icon } from "@/components/icon";
 const VALUE_CARDS = [
   {
     icon: "psychology",
-    title: "타인에 대한 깊은 이해",
-    body: "MBTI 기반의 정밀한 성향 분석 시스템",
+    title: "성향별 반응 포인트",
+    body: "MBTI별로 어떤 표현이 더 편안하게 받아들여지는지 빠르게 익힙니다.",
   },
   {
     icon: "chat_bubble",
-    title: "실전 같은 대화 연습",
-    body: "현장감을 극대화한 시나리오 트레이닝",
+    title: "실전 답장 훈련",
+    body: "현실적인 대화 상황을 기준으로 바로 써먹을 문장을 연습합니다.",
   },
   {
     icon: "bolt",
-    title: "즉각적인 AI 피드백",
-    body: "전문 코치 수준의 정교한 대화 분석",
+    title: "AI 코칭 피드백",
+    body: "점수, 개선 포인트, 예시 답변까지 한 번에 확인합니다.",
   },
 ] as const;
 
 export default function TrainingTabPage() {
+  const [continueHref] = useState(() => {
+    if (typeof window === "undefined") {
+      return "/training/select";
+    }
+
+    const mbti = window.localStorage.getItem("fftt.selected-mbti")?.toUpperCase();
+    const category = window.localStorage.getItem("fftt.selected-training-category") ?? "all";
+
+    return mbti ? `/training/arena?mbti=${mbti}&category=${category}` : "/training/select";
+  });
+
   return (
     <>
       <AppHeader
-        title="의사소통 챌린지"
+        title="커뮤니케이션 훈련"
         left={<HeaderIconButton icon="notes" label="메뉴" />}
         right={<HeaderIconButton icon="account_circle" label="프로필" />}
       />
@@ -35,31 +49,31 @@ export default function TrainingTabPage() {
           <section className="rounded-[24px] bg-[#ebe2cf] px-6 py-10">
             <div className="space-y-4">
               <h2 className="text-[36px] font-medium leading-[1.1] tracking-[-0.02em] text-[var(--ink)]">
-                나와 다른 상대를
+                다시 들어오게 만드는
                 <br />
-                이해하는 첫 걸음
+                맞춤형 훈련 루프
               </h2>
               <p className="text-[18px] font-medium leading-[1.35] text-[rgba(27,23,13,0.72)]">
-                MBTI별 맞춤 대화법을 직접 익혀보세요
+                이전 MBTI와 카테고리를 기억하고 바로 다음 문제로 이어집니다.
               </p>
             </div>
 
             <div className="mt-8 space-y-3">
-              <Link href="/training/select" className="app-primary-button rounded-[24px]">
-                트레이닝 시작하기
+              <Link href={continueHref} className="app-primary-button rounded-[24px]">
+                이어서 훈련하기
               </Link>
               <Link
-                href="/rank"
+                href="/training/select"
                 className="app-secondary-button rounded-[24px] border-transparent bg-[rgba(255,255,255,0.55)]"
               >
-                랭킹 보기
+                MBTI 다시 고르기
               </Link>
             </div>
           </section>
 
           <section className="px-1 py-8">
             <h3 className="text-[18px] font-extrabold tracking-[-0.02em] text-[var(--ink)]">
-              무엇을 할 수 있나요?
+              무엇을 훈련하나요
             </h3>
 
             <div className="mt-4 space-y-4">
@@ -72,8 +86,12 @@ export default function TrainingTabPage() {
                     <Icon name={card.icon} className="text-[26px]" />
                   </div>
                   <div>
-                    <h4 className="text-[16px] font-bold tracking-[-0.015em] text-[var(--ink)]">{card.title}</h4>
-                    <p className="text-[14px] leading-[1.45] text-[rgba(27,23,13,0.54)]">{card.body}</p>
+                    <h4 className="text-[16px] font-bold tracking-[-0.015em] text-[var(--ink)]">
+                      {card.title}
+                    </h4>
+                    <p className="text-[14px] leading-[1.45] text-[rgba(27,23,13,0.54)]">
+                      {card.body}
+                    </p>
                   </div>
                 </article>
               ))}

@@ -43,7 +43,7 @@ function buildFallbackResult(
     normalized.includes(keyword.toLowerCase()),
   );
 
-  const toneScore = /감사|괜찮|좋겠|부담|배려|함께|천천히/.test(answer) ? 10 : 4;
+  const toneScore = /고마워|배려|이해|괜찮|도와|함께|미안|조심/.test(answer) ? 10 : 4;
   const lengthScore = Math.min(20, Math.round((answer.trim().length / 300) * 20));
   const keywordScore = Math.min(30, matches.length * 8);
   const sentenceScore = pickSentenceScore(answer);
@@ -57,13 +57,13 @@ function buildFallbackResult(
     score,
     summary:
       score >= 85
-        ? `${mbtiCode} 성향에 맞는 어조와 구조가 비교적 안정적으로 드러났습니다.`
-        : `${mbtiCode} 방향성은 보였지만 표현의 선명도와 배려의 밀도를 더 높일 여지가 있습니다.`,
-    exemplarAnswer: `${prompt} 이 상황이라면 상대의 입장을 먼저 인정한 뒤, ${profile.tips[0]} 흐름으로 핵심 요청을 짧게 전하고, 마지막에 부담 없는 선택지를 덧붙이는 답변이 좋습니다.`,
+        ? `${mbtiCode} 성향에 맞는 표현과 구조가 비교적 안정적으로 보입니다.`
+        : `${mbtiCode} 성향은 일부 드러나지만 표현을 더 부드럽고 선명하게 다듬을 여지가 있습니다.`,
+    exemplarAnswer: `${prompt} 이 상황이라면 상대의 입장을 먼저 인정한 뒤, ${profile.tips[0]} 방식을 살려 핵심 요청을 간단히 전하고 마지막에 부담을 줄이는 문장을 덧붙여 보세요.`,
     keyPoints: [
-      `${profile.code} 관점에서는 ${profile.tips[0]} 방식이 먼저 보여야 합니다.`,
-      `${profile.keywords.slice(0, 2).join(", ")} 같은 성향 키워드가 답변 안에 드러나면 설득력이 높아집니다.`,
-      "첫 문장은 공감 또는 상황 정리, 둘째 문장은 핵심 제안, 마지막 문장은 여지를 남기는 흐름이 좋습니다.",
+      `${profile.code}에게는 "${profile.tips[0]}" 방식이 특히 효과적입니다.`,
+      `${profile.keywords.slice(0, 2).join(", ")} 같은 키워드가 자연스럽게 드러나면 설득력이 높아집니다.`,
+      "공감 또는 상황 인식, 핵심 요청, 부담을 줄이는 마무리의 3단 구조를 의식해 보세요.",
     ],
   };
 }
@@ -71,13 +71,13 @@ function buildFallbackResult(
 function buildSystemPrompt(mbtiCode: string) {
   const profile = MBTI_MAP[mbtiCode];
   return [
-    `너는 MBTI 맞춤형 답변 훈련 평가자다. 대상 MBTI는 ${mbtiCode} (${profile.label})다.`,
-    `이 MBTI 설명: ${profile.longDescription}`,
+    `당신은 MBTI 맞춤형 커뮤니케이션 코치입니다. 대상 MBTI는 ${mbtiCode} (${profile.label}) 입니다.`,
+    `대상 MBTI 설명: ${profile.longDescription}`,
     `중요 포인트: ${profile.tips.join(", ")}`,
-    "사용자 답변이 이 MBTI가 선호할 어조와 구조에 얼마나 맞는지 0~100점으로 평가한다.",
-    '반드시 JSON 객체만 반환한다. 형식은 {"score": number, "summary": string, "exemplarAnswer": string, "keyPoints": string[]}',
-    "summary는 한 문장, exemplarAnswer는 2~3문장, keyPoints는 정확히 3개의 항목으로 작성한다.",
-    "모범답안은 질문에 바로 사용할 수 있는 자연스러운 한국어 예시로 작성한다.",
+    "사용자 답변이 이 MBTI가 선호하는 말투와 구조에 얼마나 잘 맞는지 0~100점으로 평가하세요.",
+    '반드시 JSON 객체만 반환하세요. 형식은 {"score": number, "summary": string, "exemplarAnswer": string, "keyPoints": string[]} 입니다.',
+    "summary는 한두 문장, exemplarAnswer는 2~3문장, keyPoints는 정확히 3개를 작성하세요.",
+    "모범 답안은 실제 메시지로 바로 쓸 수 있게 자연스러운 한국어로 작성하세요.",
   ].join(" ");
 }
 
@@ -109,7 +109,7 @@ export async function evaluateTrainingAnswer(
         { role: "system", content: buildSystemPrompt(mbtiCode) },
         {
           role: "user",
-          content: `질문: ${prompt}\n사용자 답변: ${answer}`,
+          content: `상황: ${prompt}\n사용자 답변: ${answer}`,
         },
       ],
     });

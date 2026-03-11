@@ -5,6 +5,11 @@ import { Timestamp } from "firebase-admin/firestore";
 import { firestore } from "@/lib/firebase-admin";
 import { MBTI_MAP } from "@/lib/mbti";
 import type { EvaluationResult } from "@/lib/training-evaluator";
+import type {
+  TrainingDifficulty,
+  TrainingIntent,
+  TrainingPlayableCategory,
+} from "@/lib/training";
 
 export type AuthProvider = "anonymous" | "google";
 
@@ -54,6 +59,34 @@ export type AuthState = {
   userId: string;
 };
 
+export type TrainingHistoryItem = {
+  angle: string;
+  category: TrainingPlayableCategory;
+  createdAt: string;
+  difficulty: TrainingDifficulty;
+  intent: TrainingIntent;
+  prompt: string;
+  responseSource: EvaluationResult["responseSource"];
+  score: number;
+  sessionId: string;
+  summary: string;
+  targetMbti: string;
+  topic: string;
+};
+
+export type TrainingHistoryStats = {
+  previousScore: number | null;
+  recentAverageScore: number | null;
+  recentCount: number;
+  scoreDelta: number | null;
+  streakCount: number;
+};
+
+export type TrainingHistoryPayload = {
+  attempts: TrainingHistoryItem[];
+  stats: TrainingHistoryStats;
+};
+
 type UserDocument = {
   createdAt: Timestamp;
   displayName: string;
@@ -82,10 +115,14 @@ type LeaderboardDocument = {
 };
 
 type AttemptDocument = {
+  angle: string;
   answer: string;
   attemptKey: string;
+  category: TrainingPlayableCategory;
   createdAt: Timestamp;
+  difficulty: TrainingDifficulty;
   exemplarAnswer: string;
+  intent: TrainingIntent;
   keyPoints: string[];
   prompt: string;
   responseSource: EvaluationResult["responseSource"];
@@ -93,6 +130,7 @@ type AttemptDocument = {
   sessionId: string;
   summary: string;
   targetMbti: string;
+  topic: string;
   userId: string;
 };
 
@@ -170,6 +208,10 @@ function sortLeaderboard(entries: LeaderboardDocument[]) {
   });
 }
 
+function sortAttempts(entries: AttemptDocument[]) {
+  return [...entries].sort((left, right) => right.createdAt.toMillis() - left.createdAt.toMillis());
+}
+
 function toLeaderboardEntry(entry: LeaderboardDocument, rank: number): LeaderboardEntry {
   return {
     attemptCount: entry.attemptCount,
@@ -183,9 +225,80 @@ function toLeaderboardEntry(entry: LeaderboardDocument, rank: number): Leaderboa
   };
 }
 
+function toTrainingHistoryItem(entry: AttemptDocument): TrainingHistoryItem {
+  return {
+    angle: entry.angle,
+    category: entry.category,
+    createdAt: toIsoString(entry.createdAt),
+    difficulty: entry.difficulty,
+    intent: entry.intent,
+    prompt: entry.prompt,
+    responseSource: entry.responseSource,
+    score: entry.score,
+    sessionId: entry.sessionId,
+    summary: entry.summary,
+    targetMbti: entry.targetMbti,
+    topic: entry.topic,
+  };
+}
+
+function buildTrainingHistoryStats(entries: AttemptDocument[]): TrainingHistoryStats {
+  const recentEntries = sortAttempts(entries).slice(0, 5);
+  const recentAverageScore =
+    recentEntries.length > 0
+      ? Math.round(
+          recentEntries.reduce((total, entry) => total + entry.score, 0) / recentEntries.length,
+        )
+      : null;
+  const previousScore = recentEntries[1]?.score ?? null;
+  const latestScore = recentEntries[0]?.score ?? null;
+  const scoreDelta =
+    latestScore !== null && previousScore !== null ? latestScore - previousScore : null;
+
+  const uniqueDates = [...new Set(recentEntries.map((entry) => toIsoString(entry.createdAt).slice(0, 10)))];
+  let streakCount = 0;
+
+  for (let index = 0; index < uniqueDates.length; index += 1) {
+    if (index === 0) {
+      streakCount = 1;
+      continue;
+    }
+
+    const previous = new Date(`${uniqueDates[index - 1]}T00:00:00.000Z`);
+    const current = new Date(`${uniqueDates[index]}T00:00:00.000Z`);
+    const dayDiff = Math.round((previous.getTime() - current.getTime()) / 86_400_000);
+
+    if (dayDiff === 1) {
+      streakCount += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  return {
+    previousScore,
+    recentAverageScore,
+    recentCount: recentEntries.length,
+    scoreDelta,
+    streakCount,
+  };
+}
+
 async function getUserDocument(userId: string) {
   const snapshot = await firestore.collection(USERS).doc(userId).get();
   return snapshot.exists ? (snapshot.data() as UserDocument) : null;
+}
+
+async function getAttemptDocuments(userId: string, targetMbti?: string | null) {
+  const snapshot = await firestore.collection(ATTEMPTS).where("userId", "==", userId).get();
+  const entries = snapshot.docs.map((documentSnapshot) => documentSnapshot.data() as AttemptDocument);
+
+  return sortAttempts(
+    targetMbti
+      ? entries.filter((entry) => entry.targetMbti === targetMbti.toUpperCase())
+      : entries,
+  );
 }
 
 export async function createOrRestoreAnonymousUser(
@@ -252,8 +365,7 @@ export async function createOrRestoreAnonymousUser(
     transaction.set(identityRef, identity);
   });
 
-  const restored = await createOrRestoreAnonymousUser(token);
-  return restored;
+  return createOrRestoreAnonymousUser(token);
 }
 
 export async function getOverallLeaderboard(limit = 20) {
@@ -312,25 +424,74 @@ export async function getCurrentStanding(userId: string, targetMbti?: string | n
     ? mbtiSnapshot.docs.map((documentSnapshot) => documentSnapshot.data() as LeaderboardDocument)
     : [];
 
-  const standing: CurrentStanding = {
+  return {
     displayName: user.displayName,
     mbti: targetMbti && MBTI_MAP[targetMbti] ? buildStanding(mbtiEntries, userId) : null,
     overall: buildStanding(overallEntries, userId),
     userId,
-  };
+  } satisfies CurrentStanding;
+}
 
-  return standing;
+export async function getTrainingHistory(
+  userId: string,
+  targetMbti?: string | null,
+  limit = 5,
+): Promise<TrainingHistoryPayload> {
+  const user = await getUserDocument(userId);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  const entries = await getAttemptDocuments(userId, targetMbti);
+  const attempts = entries.slice(0, limit).map(toTrainingHistoryItem);
+
+  return {
+    attempts,
+    stats: buildTrainingHistoryStats(entries),
+  };
+}
+
+export async function getRecommendedDifficulty(userId?: string | null, targetMbti?: string | null) {
+  if (!userId || !targetMbti) {
+    return "easy" as const;
+  }
+
+  const recentAttempts = (await getAttemptDocuments(userId, targetMbti)).slice(0, 3);
+  if (recentAttempts.length === 0) {
+    return "easy" as const;
+  }
+
+  const average =
+    recentAttempts.reduce((total, entry) => total + entry.score, 0) / recentAttempts.length;
+  return average >= 80 ? ("medium" as const) : ("easy" as const);
 }
 
 export async function saveTrainingAttempt(params: {
+  angle: string;
   answer: string;
+  category: TrainingPlayableCategory;
+  difficulty: TrainingDifficulty;
   evaluation: EvaluationResult;
+  intent: TrainingIntent;
   prompt: string;
   sessionId: string;
   targetMbti: string;
+  topic: string;
   userId: string;
 }) {
-  const { answer, evaluation, prompt, sessionId, targetMbti, userId } = params;
+  const {
+    angle,
+    answer,
+    category,
+    difficulty,
+    evaluation,
+    intent,
+    prompt,
+    sessionId,
+    targetMbti,
+    topic,
+    userId,
+  } = params;
   const normalizedMbti = targetMbti.toUpperCase();
 
   if (!MBTI_MAP[normalizedMbti]) {
@@ -365,10 +526,14 @@ export async function saveTrainingAttempt(params: {
 
     const now = Timestamp.now();
     const attempt: AttemptDocument = {
+      angle,
       answer,
       attemptKey,
+      category,
       createdAt: now,
+      difficulty,
       exemplarAnswer: evaluation.exemplarAnswer,
+      intent,
       keyPoints: evaluation.keyPoints,
       prompt,
       responseSource: evaluation.responseSource,
@@ -376,6 +541,7 @@ export async function saveTrainingAttempt(params: {
       sessionId,
       summary: evaluation.summary,
       targetMbti: normalizedMbti,
+      topic,
       userId,
     };
 
@@ -413,7 +579,61 @@ export async function saveTrainingAttempt(params: {
     });
   });
 
-  return getCurrentStanding(userId, normalizedMbti);
+  const [currentStanding, history] = await Promise.all([
+    getCurrentStanding(userId, normalizedMbti),
+    getTrainingHistory(userId, normalizedMbti, 5),
+  ]);
+
+  return {
+    currentStanding,
+    historyStats: history.stats,
+  };
+}
+
+export async function updateUserDisplayName(params: {
+  displayName: string;
+  userId: string;
+}) {
+  const { displayName, userId } = params;
+  const userRef = firestore.collection(USERS).doc(userId);
+  const totalRef = firestore.collection(TOTALS).doc(userId);
+  const mbtiQuery = firestore.collection(MBTI_TOTALS).where("userId", "==", userId);
+  const now = Timestamp.now();
+
+  await firestore.runTransaction(async (transaction) => {
+    const [userSnapshot, totalSnapshot, mbtiSnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(totalRef),
+      transaction.get(mbtiQuery),
+    ]);
+
+    if (!userSnapshot.exists) {
+      throw new Error("User not found.");
+    }
+
+    transaction.update(userRef, {
+      displayName,
+      lastSeenAt: now,
+    });
+
+    if (totalSnapshot.exists) {
+      transaction.update(totalRef, { displayName, lastPlayedAt: now });
+    }
+
+    mbtiSnapshot.docs.forEach((documentSnapshot) => {
+      transaction.update(documentSnapshot.ref, { displayName, lastPlayedAt: now });
+    });
+  });
+
+  const user = await getUserDocument(userId);
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  return {
+    displayName: user.displayName,
+    userId: user.id,
+  };
 }
 
 export async function getUserAuthState(userId: string, environment: "production" | "stage") {
