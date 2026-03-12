@@ -1,10 +1,16 @@
 {
   "apphosting": [
     {
-      "backendId": "fftt-web-prod",
+      "backendId": "fftt-web",
       "rootDir": "web",
       "ignore": [
+        ".git",
+        "_stitch_home_extract",
+        "stitch_fftt_home_mode_selection.zip",
+        "web/.next",
         "web/.next/**",
+        "web/dev-server.log",
+        "web/node_modules",
         "web/node_modules/**",
         "web/.env.local"
       ]
@@ -13,7 +19,13 @@
       "backendId": "fftt-web-stage",
       "rootDir": "web",
       "ignore": [
+        ".git",
+        "_stitch_home_extract",
+        "stitch_fftt_home_mode_selection.zip",
+        "web/.next",
         "web/.next/**",
+        "web/dev-server.log",
+        "web/node_modules",
         "web/node_modules/**",
         "web/.env.local"
       ]
