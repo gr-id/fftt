@@ -19,19 +19,19 @@ be managed through Firebase.
 Create `web/.env.local` and add:
 
 ```env
-APP_ENV=stage
+APP_ENV=production
 GEMINI_API_KEY=your_gemini_api_key
 GEMINI_MODEL=gemini-2.5-flash
-FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_PROJECT_ID=fftt-gr-id
 FIREBASE_CLIENT_EMAIL=your_service_account_email
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-NEXT_PUBLIC_APP_ENV=stage
-NEXT_PUBLIC_ENABLE_GOOGLE_SSO=false
-NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_web_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_APP_ENV=production
+NEXT_PUBLIC_ENABLE_GOOGLE_SSO=true
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCkkqoyG0WRbZ7lnnyB9sMVT0vB_MI48Dk
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=fftt-gr-id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=fftt-gr-id
+NEXT_PUBLIC_FIREBASE_APP_ID=1:639175436216:web:398e6ba36dff503b71914d
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=639175436216
 ```
 
 For Firebase App Hosting or another Google Cloud environment with Application
@@ -66,7 +66,6 @@ npm run build
    - selected MBTI ranking
    - your personal standing card
 7. Confirm auth behavior:
-   - `APP_ENV=stage`: rank page shows `테스트용 Google 연결`
    - `APP_ENV=production` with `NEXT_PUBLIC_ENABLE_GOOGLE_SSO=true`: rank page shows real Google link button
 8. Check the result badge:
    - `AI used: gemini-2.5-flash` means the live model answered.
@@ -76,24 +75,23 @@ npm run build
 ## 5) Firebase deployment (App Hosting)
 
 Recommended flow:
-1. Create two Firebase projects: `prod` and `stage`.
-2. Enable Firestore in both projects.
-3. Create two App Hosting backends: `fftt-web-prod` and `fftt-web-stage`.
-4. Connect the same repository and set `web` as the app root for both.
-5. Configure per-backend env values:
-   - `APP_ENV`
-   - `FIREBASE_PROJECT_ID`
+1. Use Firebase project `fftt-gr-id`.
+2. Enable Firestore and Firebase Auth in that project.
+3. Use App Hosting backend `fftt-web` with `web` as the app root.
+4. Configure runtime env values:
+   - `APP_ENV=production`
+   - `FIREBASE_PROJECT_ID=fftt-gr-id`
    - `GEMINI_API_KEY`
    - Firebase Admin credentials if ADC is unavailable
-   - Firebase web app envs for the matching project
-6. In prod only:
-   - enable Firebase Auth Google provider
-   - set `NEXT_PUBLIC_ENABLE_GOOGLE_SSO=true`
-   - register the production redirect domain
-7. In stage:
-   - set `NEXT_PUBLIC_ENABLE_GOOGLE_SSO=false`
-   - use the mock Google link flow
-8. Deploy each backend separately.
+   - `NEXT_PUBLIC_APP_ENV=production`
+   - `NEXT_PUBLIC_ENABLE_GOOGLE_SSO=true`
+   - `NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCkkqoyG0WRbZ7lnnyB9sMVT0vB_MI48Dk`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=fftt-gr-id.firebaseapp.com`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID=fftt-gr-id`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID=1:639175436216:web:398e6ba36dff503b71914d`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=639175436216`
+5. Enable the Firebase Auth Google provider and register the production redirect domain.
+6. Deploy only the `fftt-web` backend.
 
 ## Next
 

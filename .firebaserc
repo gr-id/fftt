@@ -1,7 +1,6 @@
 {
   "projects": {
     "default": "fftt-gr-id",
-    "prod": "fftt-gr-id",
-    "stage": "fftt-stage-id"
+    "prod": "fftt-gr-id"
   }
 }

@@ -64,7 +64,7 @@ export default function HomePage() {
   return (
     <>
       <AppHeader
-        title="FFTT"
+        title={<Image src="/logo.png" alt="FFTT Logo" width={84} height={32} className="object-contain" priority />}
         left={<HeaderIconButton icon="notes" label="메뉴" />}
         right={<HeaderIconButton icon="account_circle" label="프로필" />}
       />

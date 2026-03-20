@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
 
 type HeaderProps = {
-  title: string;
+  title: ReactNode;
   left?: ReactNode;
   right?: ReactNode;
   subtitle?: string;
@@ -22,13 +22,13 @@ export function AppHeader({ title, left, right, subtitle }: HeaderProps) {
     <header className="app-header">
       <div className="app-screen app-header__inner">
         <div className="flex w-10 items-center justify-start">{left}</div>
-        <div className="min-w-0 flex-1 text-center">
+        <div className="min-w-0 flex-1 text-center flex flex-col justify-center items-center">
           {subtitle ? (
             <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-[var(--primary)]">
               {subtitle}
             </p>
           ) : null}
-          <h1 className="truncate text-lg font-extrabold tracking-tight text-[var(--ink)]">
+          <h1 className="truncate text-lg font-extrabold tracking-tight text-[var(--ink)] flex justify-center items-center">
             {title}
           </h1>
         </div>
